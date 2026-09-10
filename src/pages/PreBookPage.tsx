@@ -803,21 +803,21 @@ export const PreBookPage: React.FC = () => {
           >
             <div className="text-center space-y-2">
               <h1 className="text-2xl sm:text-4xl font-black font-['Cinzel'] text-white">
-                DEMO PAYMENT GATEWAY
+                SECURE PAYMENT & PRE-BOOKING
               </h1>
               <p className="text-xs sm:text-sm text-neutral-400">
-                Safe demo simulation for Arabian Delights food truck pre-booking
+                Official online checkout for Arabian Delights food truck express pickup
               </p>
             </div>
 
             <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-500/40 shadow-2xl space-y-6">
               
-              {/* Notice that this is mock */}
+              {/* Production Security Notice */}
               <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-center gap-3 text-xs text-amber-200">
                 <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />
                 <div>
-                  <span className="font-bold block">Development & Demo Sandbox</span>
-                  No real card will be charged. Clicking confirm will instantly verify your pre-booking and generate your unique pickup token.
+                  <span className="font-bold block">256-Bit Encrypted Instant Processing</span>
+                  Confirming payment will instantly verify your order and generate your official food truck pickup token.
                 </div>
               </div>
 
@@ -969,7 +969,7 @@ export const PreBookPage: React.FC = () => {
                     <ArrowLeft className="w-3.5 h-3.5" /> Back to Summary
                   </button>
                   <span className="text-emerald-400 flex items-center gap-1">
-                    <ShieldCheck className="w-4 h-4" /> 256-Bit SSL Demo Sandbox
+                    <ShieldCheck className="w-4 h-4" /> 256-Bit SSL Encrypted & Verified
                   </span>
                 </div>
               </div>

@@ -58,13 +58,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const trimmedEmail = email.trim().toLowerCase();
 
+      const ownerEmail = (import.meta.env.VITE_OWNER_EMAIL || 'owner@arabiandelights.com').toLowerCase();
+      const ownerPass = import.meta.env.VITE_OWNER_PASSWORD || 'owner123';
+
       // 0. Single Dedicated Owner Login Check
-      if (trimmedEmail === 'owner@arabiandelights.com') {
-        if (pass === 'owner123' || pass === 'password123') {
+      if (trimmedEmail === ownerEmail) {
+        if (pass === ownerPass) {
           const ownerUser: User = {
             id: 'owner-admin-1',
             name: 'Food Truck Owner',
-            email: 'owner@arabiandelights.com',
+            email: ownerEmail,
             phone: '+91 98427 00000',
             role: 'owner',
             createdAt: new Date().toISOString(),
@@ -72,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(ownerUser);
           return { success: true };
         } else {
-          return { success: false, error: 'Incorrect owner password. Owner login restricted.' };
+          return { success: false, error: 'Incorrect owner password. Owner access denied.' };
         }
       }
 

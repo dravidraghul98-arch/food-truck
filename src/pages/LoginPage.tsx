@@ -61,18 +61,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickDemoFill = () => {
-    setEmail('customer@arabiandelights.com');
-    setPassword('password123');
-    setErrorMessage('');
-  };
-
-  const handleQuickOwnerFill = () => {
-    setEmail('owner@arabiandelights.com');
-    setPassword('owner123');
-    setErrorMessage('');
-  };
-
   const handleResetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) return;
@@ -192,33 +180,7 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Demo Mode One-Click Buttons */}
-          <div className="mb-6 p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between gap-2 shadow-inner">
-            <div className="text-xs text-amber-200">
-              <span className="font-bold block text-amber-300">🚀 Quick Access</span>
-              Instant fill demo credentials
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                id="demo-login-fill-btn"
-                onClick={handleQuickDemoFill}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 shadow-md"
-              >
-                Fill Customer
-              </button>
 
-              <button
-                type="button"
-                id="owner-login-fill-btn"
-                onClick={handleQuickOwnerFill}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 shadow-md flex items-center gap-1"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-                Fill Owner
-              </button>
-            </div>
-          </div>
 
           {/* Error Banner */}
           {errorMessage && (
