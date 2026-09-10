@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BookingProvider } from './context/BookingContext';
 import { Header } from './components/Header';
@@ -57,7 +57,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <BookingProvider>
           <AppLayout>
@@ -107,6 +107,6 @@ export default function App() {
           </AppLayout>
         </BookingProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
