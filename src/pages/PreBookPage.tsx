@@ -1,0 +1,1127 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { motion } from 'motion/react';
+import confetti from 'canvas-confetti';
+import {
+  Calendar,
+  Clock,
+  User,
+  Phone,
+  MessageSquare,
+  Sparkles,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
+  CreditCard,
+  QrCode,
+  AlertCircle,
+  Plus,
+  Minus,
+  Check,
+  ChefHat,
+  Smartphone,
+  Landmark,
+  Banknote,
+} from 'lucide-react';
+import { useBooking } from '../context/BookingContext';
+import { useAuth } from '../context/AuthContext';
+import { foodItems } from '../data/foodData';
+import { FoodAddOn, FoodItem, Booking } from '../types';
+
+export const PreBookPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const {
+    activeDraft,
+    setDraftFromFood,
+    updateDraft,
+    calculateDraftTotals,
+    createBooking,
+  } = useBooking();
+
+  // Wizard Steps: 1: Details & Customization -> 2: Summary -> 3: Mock Payment -> 4: Confirmation
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Form Fields
+  const [customerName, setCustomerName] = useState(activeDraft?.customerName || user?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(activeDraft?.customerPhone || user?.phone || '');
+  const [pickupDate, setPickupDate] = useState(activeDraft?.pickupDate || new Date().toISOString().split('T')[0]);
+  const [pickupTime, setPickupTime] = useState(activeDraft?.pickupTime || '06:30 PM');
+  const [specialInstructions, setSpecialInstructions] = useState(activeDraft?.specialInstructions || '');
+  
+  // Customization state
+  const [selectedFood, setSelectedFood] = useState<FoodItem>(activeDraft?.foodItem || foodItems[0]);
+  const [quantity, setQuantity] = useState<number>(activeDraft?.quantity || 1);
+  const [selectedAddOns, setSelectedAddOns] = useState<FoodAddOn[]>(activeDraft?.selectedAddOns || []);
+
+  // Payment state
+  const [paymentMethod, setPaymentMethod] = useState<'UPI (Google Pay / PhonePe)' | 'Credit / Debit Card' | 'Net Banking' | 'Pay on Pickup'>('UPI (Google Pay / PhonePe)');
+  const [upiId, setUpiId] = useState('user@okaxis');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
+  const [formError, setFormError] = useState('');
+
+  // Sync draft if already present
+  useEffect(() => {
+    if (activeDraft) {
+      setSelectedFood(activeDraft.foodItem);
+      setQuantity(activeDraft.quantity);
+      setSelectedAddOns(activeDraft.selectedAddOns);
+      if (activeDraft.customerName) setCustomerName(activeDraft.customerName);
+      if (activeDraft.customerPhone) setCustomerPhone(activeDraft.customerPhone);
+      if (activeDraft.pickupDate) setPickupDate(activeDraft.pickupDate);
+      if (activeDraft.pickupTime) setPickupTime(activeDraft.pickupTime);
+      if (activeDraft.specialInstructions) setSpecialInstructions(activeDraft.specialInstructions);
+    } else if (user) {
+      setCustomerName(user.name);
+      setCustomerPhone(user.phone);
+    }
+  }, [activeDraft, user]);
+
+  // Valid Pickup Time Slots within Operating Hours: 4:00 PM – 11:00 PM
+  const timeSlots = [
+    '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM',
+    '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM',
+    '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM',
+    '10:00 PM', '10:30 PM', '11:00 PM'
+  ];
+
+  // Helper date choices (Today, Tomorrow, +2 Days)
+  const getAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      dates.push({ iso, label });
+    }
+    return dates;
+  };
+
+  const handleFoodChange = (food: FoodItem) => {
+    setSelectedFood(food);
+    setSelectedAddOns([]);
+  };
+
+  const toggleAddOn = (addOn: FoodAddOn) => {
+    setSelectedAddOns((prev) => {
+      const exists = prev.some((a) => a.id === addOn.id);
+      if (exists) {
+        return prev.filter((a) => a.id !== addOn.id);
+      } else {
+        return [...prev, addOn];
+      }
+    });
+  };
+
+  // Pricing calculations
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
+  const singleItemTotal = selectedFood.price + addOnsTotal;
+  const totalAmount = singleItemTotal * quantity;
+
+  // Step 1: Proceed to Summary
+  const handleProceedToSummary = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!customerName.trim()) {
+      setFormError('Please enter your full name for the pickup token.');
+      return;
+    }
+
+    if (!customerPhone.trim()) {
+      setFormError('Please enter your mobile number for SMS/Pickup notification.');
+      return;
+    }
+
+    // Save to context draft
+    updateDraft({
+      foodItem: selectedFood,
+      quantity,
+      selectedAddOns,
+      customerName,
+      customerPhone,
+      customerEmail: user?.email || '',
+      pickupDate,
+      pickupTime,
+      specialInstructions,
+    });
+
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Step 2: Proceed to Payment
+  const handleProceedToPayment = () => {
+    setStep(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Step 3: Process Razorpay or Pay on Pickup Payment
+  const handlePayAndConfirm = async () => {
+    setIsProcessingPayment(true);
+    setFormError('');
+
+    // Ensure active draft is synced with current form state
+    updateDraft({
+      foodItem: selectedFood,
+      quantity,
+      selectedAddOns,
+      customerName,
+      customerPhone,
+      customerEmail: user?.email || '',
+      pickupDate,
+      pickupTime,
+      specialInstructions,
+    });
+
+    // If Pay on Pickup is selected, bypass Razorpay online checkout
+    if (paymentMethod === 'Pay on Pickup') {
+      try {
+        const booking = await createBooking(paymentMethod);
+        setConfirmedBooking(booking);
+        setIsProcessingPayment(false);
+        setStep(4);
+
+        try {
+          confetti({
+            particleCount: 120,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#F59E0B', '#DC2626', '#10B981', '#FBBF24'],
+          });
+        } catch {}
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err: any) {
+        console.error('Pickup Booking Error:', err);
+        setIsProcessingPayment(false);
+        setFormError('Failed to record booking: ' + (err.message || 'Please retry.'));
+      }
+      return;
+    }
+
+
+    // Standard Razorpay Online Payment Flow
+    try {
+      const amountInPaise = Math.round(totalAmount * 100);
+
+      // 1. Create order on backend (/api/create-order)
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `rcpt_${Date.now()}`,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to initialize payment gateway.');
+      }
+
+      const orderData = await res.json();
+
+      // Check if Razorpay SDK is loaded
+      if (typeof window === 'undefined' || !(window as any).Razorpay) {
+        throw new Error('Razorpay SDK not loaded. Please refresh the page and try again.');
+      }
+
+      // 2. Configure Razorpay Standard Modal options
+      const options = {
+        key: orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_Ta0JCYDiCuFWmi',
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'Arabian Delights',
+        description: `Pre-booking for ${selectedFood.name}`,
+        image: '/assets/logo.png',
+        order_id: orderData.order_id,
+        handler: async function (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) {
+          try {
+            // 3. Verify signature on backend (/api/verify-payment)
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyResult = await verifyRes.json();
+
+            if (verifyResult.success) {
+              const booking = await createBooking(paymentMethod);
+              setConfirmedBooking(booking);
+              setIsProcessingPayment(false);
+              setStep(4);
+
+              try {
+                confetti({
+                  particleCount: 120,
+                  spread: 70,
+                  origin: { y: 0.6 },
+                  colors: ['#F59E0B', '#DC2626', '#10B981', '#FBBF24'],
+                });
+              } catch {}
+
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              setIsProcessingPayment(false);
+              setFormError(verifyResult.error || 'Payment signature verification failed.');
+            }
+          } catch (err: any) {
+            setIsProcessingPayment(false);
+            setFormError('Verification error: ' + (err.message || 'Payment processing failed.'));
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessingPayment(false);
+            setFormError('Payment modal was closed by user.');
+          },
+        },
+        prefill: {
+          name: customerName,
+          contact: customerPhone,
+          email: user?.email || '',
+        },
+        theme: {
+          color: '#F59E0B',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+
+      rzp.on('payment.failed', function (response: any) {
+        setIsProcessingPayment(false);
+        setFormError(`Payment failed: ${response.error?.description || 'Transaction declined'}`);
+      });
+
+      rzp.open();
+    } catch (err: any) {
+      setIsProcessingPayment(false);
+      setFormError(err.message || 'Payment initiation failed. Please try again.');
+    }
+  };
+
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#0c0606] via-[#120808] to-[#080404] py-8 px-4 sm:px-6 lg:px-8" id="pre-book-page-container">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Step Progress Tracker (Steps 1 to 3) */}
+        {step < 4 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between max-w-xl mx-auto relative">
+              {/* Connector line */}
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-neutral-800 -translate-y-1/2 z-0" />
+              <div
+                className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-red-600 to-amber-500 -translate-y-1/2 z-0 transition-all duration-500"
+                style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
+              />
+
+              {/* Step 1 Pill */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                    step >= 1
+                      ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  1
+                </div>
+                <span className="text-[11px] font-semibold text-amber-300 mt-1.5">
+                  Customize & Slot
+                </span>
+              </div>
+
+              {/* Step 2 Pill */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                    step >= 2
+                      ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  2
+                </div>
+                <span
+                  className={`text-[11px] font-semibold mt-1.5 ${
+                    step >= 2 ? 'text-amber-300' : 'text-neutral-400'
+                  }`}
+                >
+                  Summary
+                </span>
+              </div>
+
+              {/* Step 3 Pill */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                    step >= 3
+                      ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  3
+                </div>
+                <span
+                  className={`text-[11px] font-semibold mt-1.5 ${
+                    step >= 3 ? 'text-amber-300' : 'text-neutral-400'
+                  }`}
+                >
+                  Payment
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* STEP 1: BOOKING & CUSTOMIZATION DETAILS FORM */}
+        {/* ============================================================ */}
+        {step === 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="text-center space-y-2">
+              <h1 className="text-2xl sm:text-4xl font-black font-['Cinzel'] text-white">
+                PRE-BOOK YOUR ORDER
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-400">
+                Operating Hours: <span className="text-amber-300 font-bold">4:00 PM – 11:00 PM Daily</span> at Kangayam Food Truck
+              </p>
+            </div>
+
+            {formError && (
+              <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-500/60 text-red-200 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleProceedToSummary} className="space-y-6">
+              
+              {/* Selected Food Item Card */}
+              <div className="p-5 rounded-2xl bg-neutral-950/90 border-2 border-amber-500/40 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                  <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-amber-400" />
+                    Selected Food Item
+                  </h3>
+                  <span className="text-xs text-neutral-400">Pre-populated</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <img
+                    src={selectedFood.image}
+                    alt={selectedFood.name}
+                    className="w-20 h-20 rounded-xl object-cover border border-amber-500/30 shrink-0"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-['Cinzel'] font-bold text-lg text-white">
+                        {selectedFood.name}
+                      </h4>
+                      <span className="text-xs font-black text-amber-300 font-['Cinzel']">
+                        ₹{selectedFood.price}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">
+                      {selectedFood.description}
+                    </p>
+
+                    {/* Change food dropdown if customer wants another item */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-[11px] text-neutral-400">Change item:</span>
+                      <select
+                        value={selectedFood.id}
+                        onChange={(e) => {
+                          const found = foodItems.find((f) => f.id === e.target.value);
+                          if (found) handleFoodChange(found);
+                        }}
+                        className="text-xs py-1 px-2.5 rounded-lg bg-neutral-900 border border-neutral-700 text-amber-300 outline-none"
+                      >
+                        {foodItems.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name} - ₹{f.price}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add-ons list for this item */}
+                {selectedFood.addOns.length > 0 && (
+                  <div className="pt-3 border-t border-neutral-800/80">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-300 mb-2">
+                      Select Add-Ons
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedFood.addOns.map((addOn) => {
+                        const isSelected = selectedAddOns.some((a) => a.id === addOn.id);
+                        return (
+                          <div
+                            key={addOn.id}
+                            onClick={() => toggleAddOn(addOn)}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
+                              isSelected
+                                ? 'bg-amber-950/40 border-amber-400 text-white'
+                                : 'bg-neutral-900/60 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-4 h-4 rounded flex items-center justify-center border ${
+                                  isSelected ? 'bg-amber-500 border-amber-500 text-black' : 'border-neutral-600'
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              </div>
+                              <span>{addOn.name}</span>
+                            </div>
+                            <span className="font-bold text-amber-300">+₹{addOn.price}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quantity Control */}
+                <div className="pt-3 border-t border-neutral-800/80 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                    Item Quantity
+                  </span>
+                  <div className="flex items-center gap-3 bg-neutral-900 border border-amber-500/30 rounded-xl p-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={quantity <= 1}
+                      className="w-7 h-7 rounded-lg bg-neutral-800 text-white flex items-center justify-center disabled:opacity-40"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-6 text-center font-bold text-sm text-amber-300">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+                      className="w-7 h-7 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info Card */}
+              <div className="p-5 rounded-2xl bg-neutral-950/90 border border-amber-500/20 shadow-lg space-y-4">
+                <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
+                  <User className="w-4 h-4 text-amber-400" />
+                  Customer Details
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                      Customer Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="prebook-name-input"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Your full name"
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="tel"
+                      id="prebook-phone-input"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="+91 98427 12345"
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Pickup Timing & Special Instructions */}
+              <div className="p-5 rounded-2xl bg-neutral-950/90 border border-amber-500/20 shadow-lg space-y-4">
+                <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  Pickup Slot & Timing (4 PM – 11 PM)
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Date selection */}
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                      Pickup Date *
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {getAvailableDates().slice(0, 3).map((d) => (
+                        <button
+                          type="button"
+                          key={d.iso}
+                          onClick={() => setPickupDate(d.iso)}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                            pickupDate === d.iso
+                              ? 'bg-amber-500 text-black border-amber-400'
+                              : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Time slot selection */}
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                      Pickup Time Slot * (Operating Hours)
+                    </label>
+                    <select
+                      value={pickupTime}
+                      onChange={(e) => setPickupTime(e.target.value)}
+                      id="prebook-time-select"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                    >
+                      {timeSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[11px] text-amber-300/80 mt-1 block">
+                      ✓ Food will be grilled sizzling hot for this time.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Special Instructions */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                    Special Cooking Instructions (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="prebook-instructions-input"
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="e.g. Less spicy, Extra garlic toum in separate cup, Crispy wrap"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Price Calculation Box & Submit */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-red-950/70 via-neutral-900 to-amber-950/70 border-2 border-amber-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs text-neutral-300">
+                    Base: ₹{selectedFood.price} + Add-ons: ₹{addOnsTotal} = ₹{singleItemTotal}
+                    {quantity > 1 ? ` × ${quantity}` : ''}
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-['Cinzel'] text-amber-300">
+                    Total: ₹{totalAmount}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  id="prebook-proceed-summary-button"
+                  className="w-full sm:w-auto py-3.5 px-8 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-['Cinzel'] font-black text-sm tracking-wider uppercase shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <span>Review Booking Summary</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+
+        {/* ============================================================ */}
+        {/* STEP 2: BOOKING SUMMARY REVIEW */}
+        {/* ============================================================ */}
+        {step === 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="text-center space-y-2">
+              <h1 className="text-2xl sm:text-4xl font-black font-['Cinzel'] text-white">
+                BOOKING SUMMARY
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-400">
+                Please verify your order details before proceeding to demo payment
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-500/40 shadow-2xl space-y-6">
+              
+              {/* Customer & Slot Header */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-amber-500/20 pb-4">
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
+                    Customer Details
+                  </span>
+                  <div className="text-base font-bold text-white mt-0.5">{customerName}</div>
+                  <div className="text-xs text-amber-300 font-mono">{customerPhone}</div>
+                </div>
+
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
+                    Pickup Schedule
+                  </span>
+                  <div className="text-base font-bold text-white mt-0.5 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-amber-400" />
+                    {pickupDate}
+                  </div>
+                  <div className="text-xs text-amber-300 font-bold flex items-center gap-1 mt-0.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    {pickupTime} (Kangayam Food Truck)
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Items Breakdown */}
+              <div className="space-y-3">
+                <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
+                  Order Breakdown
+                </span>
+
+                <div className="p-4 rounded-2xl bg-neutral-950/80 border border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={selectedFood.image}
+                        alt={selectedFood.name}
+                        className="w-12 h-12 rounded-lg object-cover border border-amber-500/30"
+                      />
+                      <div>
+                        <h4 className="font-bold text-sm text-white">{selectedFood.name}</h4>
+                        <span className="text-xs text-neutral-400">Qty: {quantity}</span>
+                      </div>
+                    </div>
+                    <span className="font-mono font-bold text-sm text-white">
+                      ₹{selectedFood.price * quantity}
+                    </span>
+                  </div>
+
+                  {/* Add-ons */}
+                  {selectedAddOns.length > 0 && (
+                    <div className="pt-2 border-t border-neutral-900 space-y-1 pl-4">
+                      {selectedAddOns.map((addOn) => (
+                        <div key={addOn.id} className="flex justify-between text-xs text-neutral-300">
+                          <span>+ {addOn.name} (x{quantity})</span>
+                          <span className="text-amber-300 font-mono">+₹{addOn.price * quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Special instructions */}
+                  {specialInstructions && (
+                    <div className="pt-2 border-t border-neutral-900 text-xs text-neutral-400 italic">
+                      Note: "{specialInstructions}"
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cost Math */}
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-2 text-sm">
+                <div className="flex justify-between text-neutral-300 text-xs">
+                  <span>Food Item Base Price</span>
+                  <span>₹{selectedFood.price * quantity}</span>
+                </div>
+                {addOnsTotal > 0 && (
+                  <div className="flex justify-between text-neutral-300 text-xs">
+                    <span>Add-ons Total</span>
+                    <span>₹{addOnsTotal * quantity}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-emerald-400 text-xs font-semibold">
+                  <span>Pre-Booking Express Perk Fee</span>
+                  <span>FREE (₹0)</span>
+                </div>
+                <div className="pt-2 border-t border-amber-500/30 flex justify-between text-lg font-['Cinzel'] font-black text-amber-300">
+                  <span>TOTAL AMOUNT PAYABLE</span>
+                  <span>₹{totalAmount}</span>
+                </div>
+              </div>
+
+              {/* Buttons: Back & Continue */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full sm:w-auto py-3 px-6 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-neutral-500 text-neutral-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Edit Booking Details
+                </button>
+
+                <button
+                  type="button"
+                  id="summary-continue-payment-button"
+                  onClick={handleProceedToPayment}
+                  className="w-full sm:w-auto py-3.5 px-8 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-neutral-950 font-['Cinzel'] font-black text-sm tracking-wider uppercase shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <span>CONTINUE TO PAYMENT • ₹{totalAmount}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+
+        {/* ============================================================ */}
+        {/* STEP 3: DEMO PAYMENT GATEWAY */}
+        {/* ============================================================ */}
+        {step === 3 && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="text-center space-y-2">
+              <h1 className="text-2xl sm:text-4xl font-black font-['Cinzel'] text-white">
+                DEMO PAYMENT GATEWAY
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-400">
+                Safe demo simulation for Arabian Delights food truck pre-booking
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-500/40 shadow-2xl space-y-6">
+              
+              {/* Notice that this is mock */}
+              <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-center gap-3 text-xs text-amber-200">
+                <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-bold block">Development & Demo Sandbox</span>
+                  No real card will be charged. Clicking confirm will instantly verify your pre-booking and generate your unique pickup token.
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
+                  Select Payment Method
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  
+                  {/* UPI / GPay */}
+                  <div
+                    onClick={() => setPaymentMethod('UPI (Google Pay / PhonePe)')}
+                    className={`p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                      paymentMethod === 'UPI (Google Pay / PhonePe)'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs sm:text-sm">UPI Instant</div>
+                        <div className="text-[11px] text-neutral-400">GPay, PhonePe, Paytm</div>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'UPI (Google Pay / PhonePe)' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                      {paymentMethod === 'UPI (Google Pay / PhonePe)' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                    </div>
+                  </div>
+
+                  {/* Card */}
+                  <div
+                    onClick={() => setPaymentMethod('Credit / Debit Card')}
+                    className={`p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                      paymentMethod === 'Credit / Debit Card'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs sm:text-sm">Credit / Debit Card</div>
+                        <div className="text-[11px] text-neutral-400">Visa, Mastercard, RuPay</div>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'Credit / Debit Card' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                      {paymentMethod === 'Credit / Debit Card' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                    </div>
+                  </div>
+
+                  {/* Net Banking */}
+                  <div
+                    onClick={() => setPaymentMethod('Net Banking')}
+                    className={`p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                      paymentMethod === 'Net Banking'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-950 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                        <Landmark className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs sm:text-sm">Net Banking</div>
+                        <div className="text-[11px] text-neutral-400">SBI, HDFC, ICICI, Axis</div>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'Net Banking' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                      {paymentMethod === 'Net Banking' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                    </div>
+                  </div>
+
+                  {/* Pay on Pickup */}
+                  <div
+                    onClick={() => setPaymentMethod('Pay on Pickup')}
+                    className={`p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                      paymentMethod === 'Pay on Pickup'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <Banknote className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs sm:text-sm">Pay at Food Truck</div>
+                        <div className="text-[11px] text-neutral-400">Cash / QR on pickup</div>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'Pay on Pickup' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                      {paymentMethod === 'Pay on Pickup' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Amount summary pill */}
+              <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-neutral-400 block">Total Pre-Booking Charge</span>
+                  <span className="font-['Cinzel'] text-2xl font-black text-amber-300">
+                    ₹{totalAmount}
+                  </span>
+                </div>
+                <div className="text-right text-xs text-neutral-400">
+                  <div>Pickup: {pickupTime}</div>
+                  <div className="text-amber-300 font-semibold">{pickupDate}</div>
+                </div>
+              </div>
+
+              {/* Payment Action Button */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  id="pay-and-confirm-button"
+                  disabled={isProcessingPayment}
+                  onClick={handlePayAndConfirm}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-amber-500 to-amber-600 hover:from-red-500 hover:to-amber-400 text-neutral-950 font-['Cinzel'] font-black text-base sm:text-lg tracking-wider uppercase shadow-[0_0_25px_rgba(245,158,11,0.5)] transition-all cursor-pointer flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {isProcessingPayment ? (
+                    <span className="flex items-center gap-3">
+                      <span className="w-5 h-5 border-3 border-black border-t-transparent rounded-full animate-spin" />
+                      PROCESSING DEMO PAYMENT...
+                    </span>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 fill-neutral-950" />
+                      PAY & CONFIRM BOOKING • ₹{totalAmount}
+                    </>
+                  )}
+                </button>
+
+                <div className="flex justify-between items-center text-xs text-neutral-400 px-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="hover:text-neutral-200 cursor-pointer flex items-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Back to Summary
+                  </button>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <ShieldCheck className="w-4 h-4" /> 256-Bit SSL Demo Sandbox
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+
+        {/* ============================================================ */}
+        {/* STEP 4: BOOKING CONFIRMATION SCREEN */}
+        {/* ============================================================ */}
+        {step === 4 && confirmedBooking && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-6"
+          >
+            {/* Celebration Header */}
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-emerald-600 to-amber-400 mx-auto flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.5)] text-neutral-950 animate-bounce">
+                <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+              </div>
+              <h1 className="text-2xl sm:text-4xl font-black font-['Cinzel'] text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
+                ✓ BOOKING CONFIRMED!
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-300 max-w-md mx-auto">
+                Your order is safely booked in our kitchen schedule. Show this token at the Arabian Delights Food Truck counter for priority collection.
+              </p>
+            </div>
+
+            {/* Premium Digital Booking Pass Card */}
+            <div className="rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-400 shadow-[0_0_40px_rgba(245,158,11,0.25)] p-6 sm:p-8 space-y-6 relative overflow-hidden" id="confirmed-booking-pass">
+              
+              {/* Watermark Logo Background */}
+              <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none text-9xl font-['Cinzel'] font-black">
+                AD
+              </div>
+
+              {/* Pass Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-dashed border-amber-500/30 pb-4">
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">
+                    Official Pickup Token ID
+                  </span>
+                  <div className="font-mono text-xl sm:text-2xl font-black text-amber-300">
+                    {confirmedBooking.id}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 text-xs font-black uppercase tracking-wider shadow-sm">
+                    ● {confirmedBooking.status}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-medium">
+                    {confirmedBooking.paymentMethod}
+                  </span>
+                </div>
+              </div>
+
+              {/* Main Booking Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                
+                <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-neutral-400 block mb-0.5">Customer Name</span>
+                  <span className="font-bold text-white text-sm">{confirmedBooking.customerName}</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-neutral-400 block mb-0.5">Pickup Date</span>
+                  <span className="font-bold text-white text-sm">{confirmedBooking.pickupDate}</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-neutral-400 block mb-0.5">Pickup Slot</span>
+                  <span className="font-bold text-amber-300 text-sm">{confirmedBooking.pickupTime}</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-neutral-400 block mb-0.5">Total Paid</span>
+                  <span className="font-bold font-['Cinzel'] text-amber-300 text-sm">
+                    ₹{confirmedBooking.totalAmount}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Food Item & Add-ons info */}
+              <div className="p-4 rounded-2xl bg-neutral-950 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={confirmedBooking.foodItem.image}
+                    alt={confirmedBooking.foodItem.name}
+                    className="w-14 h-14 rounded-xl object-cover border border-amber-500/40"
+                  />
+                  <div>
+                    <h4 className="font-bold text-sm text-white">
+                      {confirmedBooking.foodItem.name} (x{confirmedBooking.quantity})
+                    </h4>
+                    {confirmedBooking.selectedAddOns.length > 0 && (
+                      <p className="text-xs text-amber-300/90 mt-0.5">
+                        Add-ons: {confirmedBooking.selectedAddOns.map((a) => a.name).join(', ')}
+                      </p>
+                    )}
+                    {confirmedBooking.specialInstructions && (
+                      <p className="text-[11px] text-neutral-400 italic mt-0.5">
+                        Note: {confirmedBooking.specialInstructions}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 bg-neutral-900 p-2 rounded-xl border border-neutral-800">
+                  <QrCode className="w-8 h-8 text-amber-400" />
+                  <div className="text-[10px] text-neutral-400 leading-tight">
+                    Show QR at Counter
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+                <Link
+                  to="/bookings"
+                  id="view-my-bookings-button"
+                  className="w-full sm:w-auto py-3.5 px-8 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-['Cinzel'] font-black text-sm tracking-wider uppercase text-center shadow-lg transition-all"
+                >
+                  VIEW MY BOOKINGS
+                </Link>
+
+                <Link
+                  to="/home"
+                  id="confirmation-back-to-home-button"
+                  className="w-full sm:w-auto py-3.5 px-8 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-amber-400 text-white font-semibold text-xs text-center transition-all"
+                >
+                  BACK TO HOME
+                </Link>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+
+      </div>
+    </div>
+  );
+};

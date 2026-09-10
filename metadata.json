@@ -1,0 +1,6 @@
+{
+  "name": "Arabian Delights",
+  "description": "Official food truck pre-booking web application for Arabian Delights. Explore the interactive food truck menu, customize delicious shawarmas, and pre-book your pickup in Kangayam.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
