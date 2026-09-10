@@ -55,5 +55,6 @@ export interface User {
   name: string;
   email: string;
   phone: string;
+  role?: 'customer' | 'owner';
   createdAt: string;
 }

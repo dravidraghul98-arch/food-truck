@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar,
   Clock,
-  QrCode,
+  Ticket,
   Sparkles,
   ShoppingBag,
   ChefHat,
@@ -187,8 +187,8 @@ export const MyBookingsPage: React.FC = () => {
                       onClick={() => setActiveQrModal(booking)}
                       className="w-full py-2 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <QrCode className="w-3.5 h-3.5" />
-                      View Pickup QR
+                      <Ticket className="w-3.5 h-3.5" />
+                      View Token Pass
                     </button>
 
                     {booking.status !== 'Completed' && booking.status !== 'Cancelled' && (
@@ -270,36 +270,44 @@ export const MyBookingsPage: React.FC = () => {
 
       </div>
 
-      {/* QR Code Popup Modal */}
+      {/* Pickup Token Pass Popup Modal */}
       {activeQrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-neutral-950 border-2 border-amber-400 rounded-3xl p-6 shadow-2xl text-center space-y-4">
-            <h3 className="font-['Cinzel'] font-bold text-lg text-white">
-              Food Truck Pickup Token
-            </h3>
-
-            <div className="bg-white p-4 rounded-2xl inline-block shadow-inner">
-              <QrCode className="w-40 h-40 text-black mx-auto" />
+          <div className="w-full max-w-sm bg-[#140a0a] border-2 border-amber-400 rounded-3xl p-6 shadow-2xl text-center space-y-4 relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-amber-950/80 border border-amber-500/50 mx-auto flex items-center justify-center text-amber-300">
+              <Ticket className="w-6 h-6" />
             </div>
 
             <div>
-              <div className="font-mono text-xl font-black text-amber-300">
+              <span className="text-[10px] uppercase font-bold text-amber-400 tracking-widest block">
+                Food Truck Pickup Token
+              </span>
+              <h3 className="font-mono text-2xl font-black text-white mt-1">
                 {activeQrModal.id}
+              </h3>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-neutral-900/90 border border-neutral-800 text-left text-xs space-y-1.5">
+              <div className="text-neutral-400">
+                Item: <span className="font-bold text-white">{activeQrModal.foodItem.name} (x{activeQrModal.quantity})</span>
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
-                {activeQrModal.foodItem.name} (x{activeQrModal.quantity})
+              <div className="text-neutral-400">
+                Customer: <span className="font-bold text-neutral-200">{activeQrModal.customerName}</span>
               </div>
-              <div className="text-xs text-amber-400 font-bold mt-1">
-                Slot: {activeQrModal.pickupTime} • {activeQrModal.pickupDate}
+              <div className="text-amber-300 font-bold">
+                Pickup Slot: {activeQrModal.pickupTime} • {activeQrModal.pickupDate}
+              </div>
+              <div className="text-emerald-400 font-semibold pt-1 border-t border-neutral-800">
+                Status: {activeQrModal.status} ({activeQrModal.paymentMethod})
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setActiveQrModal(null)}
-              className="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-white text-xs font-bold"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
             >
-              Close Token
+              Close Token Pass
             </button>
           </div>
         </div>

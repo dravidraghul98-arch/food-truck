@@ -20,6 +20,7 @@ import { MyBookingsPage } from './pages/MyBookingsPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { OwnerDashboardPage } from './pages/OwnerDashboardPage';
 
 // Route guard for protected pages
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -100,6 +101,9 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Owner Portal Route */}
+              <Route path="/owner" element={<OwnerDashboardPage />} />
 
               {/* Fallback route */}
               <Route path="*" element={<Navigate to="/home" replace />} />

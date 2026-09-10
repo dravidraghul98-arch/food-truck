@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, Sparkles, Utensils, Flame, Leaf, Award } from 'lucide-react';
-import { foodCategories, foodItems } from '../data/foodData';
+import { foodCategories, getEffectiveFoodItems } from '../data/foodData';
 import { FoodCategory, FoodItem, FoodType } from '../types';
 import { FoodCard } from '../components/FoodCard';
 import { FoodDetailModal } from '../components/FoodDetailModal';
@@ -18,7 +18,9 @@ export const MenuPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'all' | 'veg' | 'non-veg'>('all');
 
-  const filteredItems = foodItems.filter((item) => {
+  const allFoodItems = getEffectiveFoodItems();
+
+  const filteredItems = allFoodItems.filter((item) => {
     const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -84,7 +86,7 @@ export const MenuPage: React.FC = () => {
                     : 'text-neutral-300 hover:text-white'
                 }`}
               >
-                All ({foodItems.length})
+                All ({allFoodItems.length})
               </button>
               <button
                 type="button"

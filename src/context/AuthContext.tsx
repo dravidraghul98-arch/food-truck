@@ -58,6 +58,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const trimmedEmail = email.trim().toLowerCase();
 
+      // 0. Single Dedicated Owner Login Check
+      if (trimmedEmail === 'owner@arabiandelights.com') {
+        if (pass === 'owner123' || pass === 'password123') {
+          const ownerUser: User = {
+            id: 'owner-admin-1',
+            name: 'Food Truck Owner',
+            email: 'owner@arabiandelights.com',
+            phone: '+91 98427 00000',
+            role: 'owner',
+            createdAt: new Date().toISOString(),
+          };
+          setUser(ownerUser);
+          return { success: true };
+        } else {
+          return { success: false, error: 'Incorrect owner password. Owner login restricted.' };
+        }
+      }
+
       // 1. Try backend API endpoint safely (if server is running)
       try {
         const response = await fetch('/api/auth/login', {
@@ -70,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.ok && contentType && contentType.includes('application/json')) {
           const data = await response.json();
           if (data.success && data.user) {
-            setUser(data.user);
+            setUser({ ...data.user, role: data.user.role || 'customer' });
             return { success: true };
           }
         }
@@ -91,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: sbData.user.user_metadata?.name || trimmedEmail.split('@')[0],
             email: sbData.user.email || trimmedEmail,
             phone: sbData.user.user_metadata?.phone || '+91 98427 12345',
+            role: sbData.user.user_metadata?.role || 'customer',
             createdAt: sbData.user.created_at || new Date().toISOString(),
           };
           setUser(activeUser);
@@ -109,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (u) => u.user.email.toLowerCase() === trimmedEmail && u.pass === pass
           );
           if (found) {
-            setUser(found.user);
+            setUser({ ...found.user, role: found.user.role || 'customer' });
             return { success: true };
           }
         }
@@ -117,13 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Local storage parse error
       }
 
-      // 4. Default Demo Account Fallback (customer@arabiandelights.com or quick login)
+      // 4. Default Demo Customer Fallback (customer@arabiandelights.com or quick login)
       if (trimmedEmail === 'customer@arabiandelights.com' || (trimmedEmail && pass.length >= 4)) {
         const demoUser: User = {
           id: 'usr-' + Date.now(),
           name: trimmedEmail === 'customer@arabiandelights.com' ? 'Demo Customer' : trimmedEmail.split('@')[0],
           email: trimmedEmail,
           phone: '+91 98427 12345',
+          role: 'customer',
           createdAt: new Date().toISOString(),
         };
         setUser(demoUser);

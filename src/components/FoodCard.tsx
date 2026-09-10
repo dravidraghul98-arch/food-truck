@@ -41,11 +41,15 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food, onViewDetails, onPreBo
             />
           </span>
 
-          {food.badge && (
+          {!food.available ? (
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white shadow-md uppercase tracking-wider">
+              OUT OF STOCK
+            </span>
+          ) : food.badge ? (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-black shadow-sm">
               {food.badge}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Rating Pill Top Right */}
@@ -97,10 +101,20 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food, onViewDetails, onPreBo
             type="button"
             onClick={() => onPreBook(food)}
             disabled={!food.available}
-            className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 text-neutral-950 text-xs font-bold flex items-center justify-center gap-1 shadow-md hover:shadow-amber-500/20 transition-all cursor-pointer font-['Cinzel'] tracking-wide uppercase"
+            className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1 shadow-md transition-all cursor-pointer font-['Cinzel'] tracking-wide uppercase text-xs ${
+              food.available
+                ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-neutral-950'
+                : 'bg-neutral-800 text-neutral-500 border border-neutral-700 cursor-not-allowed opacity-60'
+            }`}
           >
-            <Sparkles className="w-3.5 h-3.5 fill-neutral-950" />
-            Pre-Book
+            {food.available ? (
+              <>
+                <Sparkles className="w-3.5 h-3.5 fill-neutral-950" />
+                Pre-Book
+              </>
+            ) : (
+              <span>SOLD OUT</span>
+            )}
           </button>
         </div>
       </div>

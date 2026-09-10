@@ -323,3 +323,36 @@ export const foodCategories = [
   'Drinks',
   'Combos',
 ] as const;
+
+const FOOD_STOCK_STORAGE_KEY = 'arabian_delights_food_stock';
+
+export function getStoredStockMap(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(FOOD_STOCK_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed reading food stock storage:', e);
+  }
+  return {};
+}
+
+export function saveStockStatus(foodId: string, available: boolean): Record<string, boolean> {
+  const stockMap = getStoredStockMap();
+  stockMap[foodId] = available;
+  try {
+    localStorage.setItem(FOOD_STOCK_STORAGE_KEY, JSON.stringify(stockMap));
+  } catch (e) {
+    console.error('Failed saving food stock storage:', e);
+  }
+  return stockMap;
+}
+
+export function getEffectiveFoodItems(): FoodItem[] {
+  const stockMap = getStoredStockMap();
+  return foodItems.map((item) => ({
+    ...item,
+    available: stockMap[item.id] !== undefined ? stockMap[item.id] : item.available,
+  }));
+}
