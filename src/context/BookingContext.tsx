@@ -278,8 +278,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setBookings((prev) => [newBooking, ...prev.filter((b) => b.id !== newBooking.id)]);
 
-    // Save directly into Supabase PostgreSQL database
-    await createSupabaseBooking(newBooking);
+    // Save directly into Supabase PostgreSQL database (non-blocking for instant UI response)
+    createSupabaseBooking(newBooking).catch((err) => {
+      console.warn('Background Supabase booking record error:', err);
+    });
 
     return newBooking;
   };
