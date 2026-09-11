@@ -35,6 +35,41 @@ export const Header: React.FC = () => {
     return null;
   }
 
+  if (isOwner) {
+    return (
+      <header className="sticky top-0 z-40 bg-[#0c0909]/95 backdrop-blur-md border-b border-amber-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <NavLink to="/owner" className="flex items-center gap-3" id="owner-header-logo-link">
+              <BrandLogo size="md" />
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-black uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                OWNER PORTAL
+              </span>
+            </NavLink>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-neutral-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="font-bold text-amber-300">owner@arabiandelights.com</span>
+              </div>
+
+              <button
+                type="button"
+                id="owner-header-logout-button"
+                onClick={handleLogout}
+                className="px-4 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-200 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md"
+              >
+                <LogOut className="w-4 h-4 text-red-400" />
+                <span>Logout Owner</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-40 bg-[#0c0909]/95 backdrop-blur-md border-b border-amber-500/20 shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

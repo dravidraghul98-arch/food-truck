@@ -23,13 +23,18 @@ import { ContactPage } from './pages/ContactPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { OwnerDashboardPage } from './pages/OwnerDashboardPage';
 
-// Route guard for protected pages
+// Route guard for customer protected pages (redirects owner to /owner)
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  const isOwner = user?.role === 'owner' || user?.email === 'owner@arabiandelights.com';
+  if (isOwner) {
+    return <Navigate to="/owner" replace />;
   }
 
   return <>{children}</>;
@@ -37,14 +42,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Root index redirector
 const IndexRedirect: React.FC = () => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />;
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  const isOwner = user?.role === 'owner' || user?.email === 'owner@arabiandelights.com';
+  return isOwner ? <Navigate to="/owner" replace /> : <Navigate to="/home" replace />;
 };
 
-// Layout wrapper that hides Header/Footer on Login/Register if needed or keeps it clean
+// Layout wrapper that hides Header/Footer on Login/Register or for Owner
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isOwner = user?.role === 'owner' || user?.email === 'owner@arabiandelights.com';
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white font-['Plus_Jakarta_Sans'] selection:bg-amber-500 selection:text-black">
@@ -52,7 +62,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <main className="flex-1">
         {children}
       </main>
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !isOwner && <Footer />}
     </div>
   );
 };
