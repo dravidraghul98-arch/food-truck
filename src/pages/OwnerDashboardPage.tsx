@@ -137,8 +137,9 @@ export const OwnerDashboardPage: React.FC = () => {
   };
 
   // Owner Login Modal State if not authenticated as owner
-  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('owner@arabiandelights.com');
   const [ownerPassword, setOwnerPassword] = useState('');
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -238,14 +239,30 @@ export const OwnerDashboardPage: React.FC = () => {
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-300 mb-1">
                 Owner Password
               </label>
-              <input
-                type="password"
-                value={ownerPassword}
-                onChange={(e) => setOwnerPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
-              />
+              <div className="relative">
+                <input
+                  type={showOwnerPassword ? 'text' : 'password'}
+                  id="owner-password-input"
+                  value={ownerPassword}
+                  onChange={(e) => setOwnerPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full pl-3.5 pr-11 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                />
+                <button
+                  type="button"
+                  id="toggle-owner-password-visibility"
+                  onClick={() => setShowOwnerPassword(!showOwnerPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-neutral-400 hover:text-amber-300 cursor-pointer transition-colors"
+                  aria-label={showOwnerPassword ? 'Hide owner password' : 'Show owner password'}
+                >
+                  {showOwnerPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1 font-medium">
+                <span>💡 Default owner password:</span>
+                <strong className="text-amber-300 font-bold underline">owner123</strong>
+              </p>
             </div>
 
             <button
