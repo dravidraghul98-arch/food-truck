@@ -61,9 +61,17 @@ export const ContactPage: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-bold text-white">Truck Location</div>
-                    <div className="text-neutral-400 mt-0.5 leading-relaxed">
+                    <a
+                      href="https://maps.app.goo.gl/VujHZr17nRoEEraA7?g_st=aw"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neutral-400 hover:text-amber-300 transition-colors mt-0.5 leading-relaxed block group"
+                    >
                       Near Bus Stand Main Road, Kangayam, Tirupur Dist, Tamil Nadu - 638701
-                    </div>
+                      <span className="text-amber-400 text-xs font-semibold block mt-1 underline flex items-center gap-1">
+                        Open in Google Maps →
+                      </span>
+                    </a>
                   </div>
                 </div>
 
@@ -111,21 +119,29 @@ export const ContactPage: React.FC = () => {
             </div>
 
             {/* Live Map / Navigation Visual */}
-            <div className="p-5 rounded-3xl bg-neutral-950 border border-neutral-800 space-y-2">
+            <a
+              href="https://maps.app.goo.gl/VujHZr17nRoEEraA7?g_st=aw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-5 rounded-3xl bg-neutral-950 border border-amber-500/30 hover:border-amber-400 space-y-2 transition-all group shadow-xl"
+            >
               <div className="flex items-center justify-between text-xs text-amber-300 font-bold uppercase">
                 <span>Kangayam Landmark</span>
                 <span className="text-emerald-400">● 50m from Bus Stand</span>
               </div>
-              <div className="h-32 rounded-2xl bg-[#141a1f] border border-neutral-700 relative overflow-hidden flex items-center justify-center text-center p-3">
-                <div className="space-y-1">
-                  <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center mx-auto shadow-lg animate-bounce">
-                    <MapPin className="w-4 h-4 fill-white" />
+              <div className="h-36 rounded-2xl bg-[#141a1f] border border-neutral-700 relative overflow-hidden flex items-center justify-center text-center p-3 group-hover:border-amber-500/60 transition-colors">
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center mx-auto shadow-lg group-hover:scale-110 transition-transform">
+                    <MapPin className="w-5 h-5 fill-white" />
                   </div>
-                  <div className="font-bold text-xs text-white">Arabian Delights Spot</div>
+                  <div className="font-bold text-xs text-white group-hover:text-amber-300 transition-colors">Arabian Delights Spot</div>
                   <div className="text-[10px] text-neutral-400">Bus Stand Road, Kangayam</div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-black text-[11px] font-bold shadow-md">
+                    <span>🗺️ Get Directions in Google Maps</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </a>
 
           </div>
 

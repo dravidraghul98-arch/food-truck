@@ -10,7 +10,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           
           {/* Col 1: Brand & Tagline */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <BrandLogo size="md" />
             <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
               Kangayam’s premier mobile culinary sensation. Serving authentically spiced Lebanese & Arabian shawarmas, platters, and loaded grills freshly from our custom food truck.
@@ -83,7 +83,17 @@ export const Footer: React.FC = () => {
             <ul className="space-y-3 text-xs sm:text-sm">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <span>Near Bus Stand Main Road, Kangayam, Tirupur Dist, Tamil Nadu - 638701</span>
+                <a
+                  href="https://maps.app.goo.gl/VujHZr17nRoEEraA7?g_st=aw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-amber-300 transition-colors"
+                >
+                  Near Bus Stand Main Road, Kangayam, Tirupur Dist, Tamil Nadu - 638701
+                  <span className="text-amber-400 text-xs font-semibold block mt-0.5 underline">
+                    Open in Google Maps →
+                  </span>
+                </a>
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0" />

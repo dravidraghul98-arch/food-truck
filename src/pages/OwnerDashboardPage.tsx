@@ -20,6 +20,9 @@ import {
   ToggleRight,
   RefreshCw,
   Ban,
+  MapPin,
+  Truck,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
@@ -34,8 +37,8 @@ export const OwnerDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'history' | 'stock'>('active');
 
   // Owner Login Modal State if not authenticated as owner
-  const [ownerEmail, setOwnerEmail] = useState('owner@arabiandelights.com');
-  const [ownerPassword, setOwnerPassword] = useState('owner123');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -125,6 +128,7 @@ export const OwnerDashboardPage: React.FC = () => {
                 type="email"
                 value={ownerEmail}
                 onChange={(e) => setOwnerEmail(e.target.value)}
+                placeholder="Enter owner email"
                 required
                 className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
               />
@@ -138,6 +142,7 @@ export const OwnerDashboardPage: React.FC = () => {
                 type="password"
                 value={ownerPassword}
                 onChange={(e) => setOwnerPassword(e.target.value)}
+                placeholder="••••••••"
                 required
                 className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
               />
@@ -158,13 +163,6 @@ export const OwnerDashboardPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-[11px] text-amber-200 text-center">
-            <span className="font-bold">Default Owner Credentials:</span>
-            <div className="font-mono mt-0.5 text-amber-300">
-              ID: owner@arabiandelights.com | Pass: owner123
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -329,7 +327,11 @@ export const OwnerDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full bg-amber-950 border border-amber-500/60 text-amber-300 text-xs font-bold uppercase">
+                        <span className="px-2.5 py-1 rounded-full bg-amber-950 border border-amber-500/60 text-amber-300 text-xs font-black uppercase flex items-center gap-1">
+                          {booking.orderType === 'Home Delivery' ? <Truck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
+                          {booking.orderType || 'Pickup'}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-bold uppercase">
                           ● {booking.status}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${booking.paymentStatus === 'PAID' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50' : 'bg-red-950 text-red-300 border border-red-500/50'}`}>
@@ -347,7 +349,7 @@ export const OwnerDashboardPage: React.FC = () => {
 
                       <div className="flex items-center gap-2 text-amber-300 font-mono">
                         <Phone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>{booking.customerPhone}</span>
+                        <span>{booking.deliveryPhone || booking.customerPhone}</span>
                       </div>
 
                       <div className="flex items-center gap-2 text-neutral-300">
@@ -360,6 +362,16 @@ export const OwnerDashboardPage: React.FC = () => {
                         <span>{booking.pickupTime}</span>
                       </div>
                     </div>
+
+                    {/* Home Delivery Address Display */}
+                    {booking.orderType === 'Home Delivery' && booking.deliveryAddress && (
+                      <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs space-y-0.5">
+                        <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" /> Delivery Address:
+                        </span>
+                        <div className="text-white text-xs font-medium">{booking.deliveryAddress}</div>
+                      </div>
+                    )}
 
                     {/* Food Snapshot */}
                     <div className="p-3 rounded-xl bg-black/60 border border-neutral-800 flex items-center justify-between text-xs">

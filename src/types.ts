@@ -29,12 +29,17 @@ export interface FoodItem {
 
 export type BookingStatus = 'Confirmed' | 'Preparing' | 'Ready' | 'Completed' | 'Cancelled';
 
+export type OrderType = 'Pickup' | 'Home Delivery';
+
 export interface Booking {
   id: string;
   userId: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  orderType: OrderType;
+  deliveryAddress?: string;
+  deliveryPhone?: string;
   foodItem: FoodItem;
   quantity: number;
   selectedAddOns: FoodAddOn[];

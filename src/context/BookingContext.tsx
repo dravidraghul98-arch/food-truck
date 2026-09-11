@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Booking, BookingStatus, FoodAddOn, FoodItem } from '../types';
+import { Booking, BookingStatus, FoodAddOn, FoodItem, OrderType } from '../types';
 import {
   supabase,
   fetchSupabaseBookings,
@@ -13,9 +13,12 @@ interface PreBookDraft {
   foodItem: FoodItem;
   quantity: number;
   selectedAddOns: FoodAddOn[];
+  orderType: OrderType;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  deliveryAddress?: string;
+  deliveryPhone?: string;
   pickupDate: string;
   pickupTime: string;
   specialInstructions: string;
@@ -107,6 +110,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
               customerName: newRow.customer_name,
               customerPhone: newRow.customer_phone,
               customerEmail: newRow.customer_email,
+              orderType: newRow.order_type || 'Pickup',
+              deliveryAddress: newRow.delivery_address || '',
+              deliveryPhone: newRow.delivery_phone || newRow.customer_phone || '',
               foodItem: typeof newRow.food_item_snapshot === 'string' ? JSON.parse(newRow.food_item_snapshot) : newRow.food_item_snapshot,
               quantity: newRow.quantity,
               selectedAddOns: typeof newRow.selected_add_ons === 'string' ? JSON.parse(newRow.selected_add_ons) : newRow.selected_add_ons || [],
@@ -164,9 +170,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       foodItem: food,
       quantity: Math.max(1, quantity),
       selectedAddOns: addOns,
+      orderType: 'Pickup',
       customerName: userInfo?.name || '',
       customerPhone: userInfo?.phone || '',
       customerEmail: userInfo?.email || '',
+      deliveryAddress: '',
+      deliveryPhone: userInfo?.phone || '',
       pickupDate: today,
       pickupTime: '06:00 PM',
       specialInstructions: '',
@@ -233,9 +242,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
       quantity: 1,
       selectedAddOns: [],
+      orderType: 'Pickup' as OrderType,
       customerName: user?.name || 'Guest Customer',
       customerPhone: user?.phone || '+91 98427 12345',
       customerEmail: user?.email || 'customer@arabiandelights.com',
+      deliveryAddress: '',
+      deliveryPhone: user?.phone || '+91 98427 12345',
       pickupDate: new Date().toISOString().split('T')[0],
       pickupTime: '06:00 PM',
       specialInstructions: '',
@@ -260,6 +272,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       customerName: draft.customerName || user?.name || 'Guest Customer',
       customerPhone: draft.customerPhone || user?.phone || '+91 98427 12345',
       customerEmail: draft.customerEmail || user?.email || 'customer@arabiandelights.com',
+      orderType: draft.orderType || 'Pickup',
+      deliveryAddress: draft.deliveryAddress || '',
+      deliveryPhone: draft.deliveryPhone || draft.customerPhone || '',
       foodItem: draft.foodItem,
       quantity: draft.quantity,
       selectedAddOns: draft.selectedAddOns,

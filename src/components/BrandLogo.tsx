@@ -14,14 +14,28 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   isCompact = false,
 }) => {
   const sizeMap = {
-    sm: 'h-9',
-    md: 'h-12',
-    lg: 'h-16',
-    xl: 'h-24',
+    sm: 'h-8',
+    md: 'h-10 sm:h-11',
+    lg: 'h-14',
+    xl: 'h-20',
+  };
+
+  const textSizeMap = {
+    sm: 'text-xs sm:text-sm',
+    md: 'text-sm sm:text-base lg:text-lg',
+    lg: 'text-lg sm:text-xl lg:text-2xl',
+    xl: 'text-2xl sm:text-3xl lg:text-4xl',
+  };
+
+  const taglineSizeMap = {
+    sm: 'text-[9px]',
+    md: 'text-[10px]',
+    lg: 'text-xs',
+    xl: 'text-sm',
   };
 
   return (
-    <div className={`flex items-center gap-3 select-none ${className}`} id="arabian-delights-logo-container">
+    <div className={`flex items-center gap-2.5 select-none min-w-0 ${className}`} id="arabian-delights-logo-container">
       {/* SVG Emblem with Arabic Arch, Shawarma Torch, Food Truck & Gold Accents */}
       <svg
         className={`${sizeMap[size]} w-auto shrink-0 aspect-[1/1] drop-shadow-[0_2px_10px_rgba(245,158,11,0.35)]`}
@@ -132,23 +146,23 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
       {/* Typography Block */}
       {!isCompact && (
-        <div className="flex flex-col justify-center">
-          <div className="flex items-center gap-1.5">
-            <span className="font-['Cinzel'] tracking-wider font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 leading-none text-lg sm:text-xl lg:text-2xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+        <div className="flex flex-col justify-center min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`font-['Cinzel'] tracking-wider font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 leading-none ${textSizeMap[size]} drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]`}>
               ARABIAN
             </span>
-            <span className="font-['Cinzel'] tracking-wider font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-500 to-red-600 leading-none text-lg sm:text-xl lg:text-2xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+            <span className={`font-['Cinzel'] tracking-wider font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-500 to-red-600 leading-none ${textSizeMap[size]} drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]`}>
               DELIGHTS
             </span>
           </div>
 
           {showTagline && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className="h-[1px] w-3 bg-amber-500/50"></span>
-              <span className="text-[10px] sm:text-xs font-semibold tracking-[0.25em] text-amber-300/90 uppercase">
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="h-[1px] w-2.5 bg-amber-500/50"></span>
+              <span className={`${taglineSizeMap[size]} font-semibold tracking-[0.2em] text-amber-300/90 uppercase`}>
                 Food Truck • Kangayam
               </span>
-              <span className="h-[1px] w-3 bg-amber-500/50"></span>
+              <span className="h-[1px] w-2.5 bg-amber-500/50"></span>
             </div>
           )}
         </div>

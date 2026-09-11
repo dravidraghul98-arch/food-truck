@@ -181,9 +181,16 @@ export const FoodTruck: React.FC<FoodTruckProps> = ({ onSelectFood, selectedFood
 
             {/* Bottom Caption on Photo */}
             <div className="absolute bottom-4 inset-x-4 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-black/75 backdrop-blur-md border border-amber-500/30 text-xs text-neutral-300">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <MapPin className="w-4 h-4 text-red-400 shrink-0" />
-                <span className="font-semibold text-white">Kangayam Bus Stand Road Location</span>
+                <a
+                  href="https://maps.app.goo.gl/VujHZr17nRoEEraA7?g_st=aw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-white hover:text-amber-300 transition-colors flex items-center gap-1"
+                >
+                  Kangayam Bus Stand Road Location 🗺️
+                </a>
                 <span className="hidden sm:inline text-neutral-400">•</span>
                 <span className="text-amber-300">Open Daily 4:00 PM – 11:00 PM</span>
               </div>

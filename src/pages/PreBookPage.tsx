@@ -23,11 +23,16 @@ import {
   Smartphone,
   Landmark,
   Banknote,
+  MapPin,
+  Truck,
+  Store,
 } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
+import { sanitizeInput, validatePhone } from '../lib/security';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
 import { foodItems } from '../data/foodData';
-import { FoodAddOn, FoodItem, Booking } from '../types';
+import { FoodAddOn, FoodItem, Booking, OrderType } from '../types';
 
 export const PreBookPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,8 +49,11 @@ export const PreBookPage: React.FC = () => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Form Fields
+  const [orderType, setOrderType] = useState<OrderType>(activeDraft?.orderType || 'Pickup');
   const [customerName, setCustomerName] = useState(activeDraft?.customerName || user?.name || '');
   const [customerPhone, setCustomerPhone] = useState(activeDraft?.customerPhone || user?.phone || '');
+  const [deliveryAddress, setDeliveryAddress] = useState(activeDraft?.deliveryAddress || '');
+  const [deliveryPhone, setDeliveryPhone] = useState(activeDraft?.deliveryPhone || user?.phone || '');
   const [pickupDate, setPickupDate] = useState(activeDraft?.pickupDate || new Date().toISOString().split('T')[0]);
   const [pickupTime, setPickupTime] = useState(activeDraft?.pickupTime || '06:30 PM');
   const [specialInstructions, setSpecialInstructions] = useState(activeDraft?.specialInstructions || '');
@@ -68,14 +76,18 @@ export const PreBookPage: React.FC = () => {
       setSelectedFood(activeDraft.foodItem);
       setQuantity(activeDraft.quantity);
       setSelectedAddOns(activeDraft.selectedAddOns);
+      if (activeDraft.orderType) setOrderType(activeDraft.orderType);
       if (activeDraft.customerName) setCustomerName(activeDraft.customerName);
       if (activeDraft.customerPhone) setCustomerPhone(activeDraft.customerPhone);
+      if (activeDraft.deliveryAddress) setDeliveryAddress(activeDraft.deliveryAddress);
+      if (activeDraft.deliveryPhone) setDeliveryPhone(activeDraft.deliveryPhone);
       if (activeDraft.pickupDate) setPickupDate(activeDraft.pickupDate);
       if (activeDraft.pickupTime) setPickupTime(activeDraft.pickupTime);
       if (activeDraft.specialInstructions) setSpecialInstructions(activeDraft.specialInstructions);
     } else if (user) {
       setCustomerName(user.name);
       setCustomerPhone(user.phone);
+      setDeliveryPhone(user.phone);
     }
   }, [activeDraft, user]);
 
@@ -127,24 +139,50 @@ export const PreBookPage: React.FC = () => {
     e.preventDefault();
     setFormError('');
 
-    if (!customerName.trim()) {
-      setFormError('Please enter your full name for the pickup token.');
+    const sanitizedName = sanitizeInput(customerName, 60);
+    const sanitizedPhone = sanitizeInput(customerPhone, 20);
+    const sanitizedAddress = sanitizeInput(deliveryAddress, 300);
+    const sanitizedPhoneDelivery = sanitizeInput(deliveryPhone, 20);
+    const sanitizedInstructions = sanitizeInput(specialInstructions, 400);
+
+    if (!sanitizedName) {
+      setFormError('Please enter your full name for the booking token.');
       return;
     }
 
-    if (!customerPhone.trim()) {
-      setFormError('Please enter your mobile number for SMS/Pickup notification.');
+    if (!validatePhone(sanitizedPhone)) {
+      setFormError('Please enter a valid mobile number for SMS/Order notifications.');
       return;
     }
+
+    if (orderType === 'Home Delivery') {
+      if (!sanitizedAddress) {
+        setFormError('Please enter your complete delivery address for Home Delivery.');
+        return;
+      }
+      if (!validatePhone(sanitizedPhoneDelivery || sanitizedPhone)) {
+        setFormError('Please enter a valid mobile number for delivery updates.');
+        return;
+      }
+    }
+
+    setCustomerName(sanitizedName);
+    setCustomerPhone(sanitizedPhone);
+    setDeliveryAddress(sanitizedAddress);
+    setDeliveryPhone(sanitizedPhoneDelivery);
+    setSpecialInstructions(sanitizedInstructions);
 
     // Save to context draft
     updateDraft({
       foodItem: selectedFood,
       quantity,
       selectedAddOns,
+      orderType,
       customerName,
       customerPhone,
       customerEmail: user?.email || '',
+      deliveryAddress: orderType === 'Home Delivery' ? deliveryAddress : '',
+      deliveryPhone: orderType === 'Home Delivery' ? (deliveryPhone || customerPhone) : customerPhone,
       pickupDate,
       pickupTime,
       specialInstructions,
@@ -170,9 +208,12 @@ export const PreBookPage: React.FC = () => {
       foodItem: selectedFood,
       quantity,
       selectedAddOns,
+      orderType,
       customerName,
       customerPhone,
       customerEmail: user?.email || '',
+      deliveryAddress: orderType === 'Home Delivery' ? deliveryAddress : '',
+      deliveryPhone: orderType === 'Home Delivery' ? (deliveryPhone || customerPhone) : customerPhone,
       pickupDate,
       pickupTime,
       specialInstructions,
@@ -528,6 +569,68 @@ export const PreBookPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Order Type Selection: Pickup vs Home Delivery */}
+              <div className="p-5 rounded-2xl bg-neutral-950/90 border-2 border-amber-500/40 shadow-xl space-y-4">
+                <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
+                  <Truck className="w-4 h-4 text-amber-400" />
+                  Select Order Fulfillment Option *
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Pickup Option */}
+                  <div
+                    id="order-type-pickup-btn"
+                    onClick={() => setOrderType('Pickup')}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
+                      orderType === 'Pickup'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${orderType === 'Pickup' ? 'bg-amber-500 text-black font-bold' : 'bg-neutral-800 text-amber-400'}`}>
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm">Pickup at Food Truck</span>
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderType === 'Pickup' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                          {orderType === 'Pickup' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                        </div>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Collect directly at Kangayam Food Truck counter (4 PM – 11 PM).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Home Delivery Option */}
+                  <div
+                    id="order-type-delivery-btn"
+                    onClick={() => setOrderType('Home Delivery')}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
+                      orderType === 'Home Delivery'
+                        ? 'bg-amber-950/50 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                        : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${orderType === 'Home Delivery' ? 'bg-amber-500 text-black font-bold' : 'bg-neutral-800 text-amber-400'}`}>
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm">Home Delivery</span>
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderType === 'Home Delivery' ? 'border-amber-400 bg-amber-500' : 'border-neutral-600'}`}>
+                          {orderType === 'Home Delivery' && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                        </div>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Hot & fresh shawarma delivered right to your doorstep.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Customer Info Card */}
               <div className="p-5 rounded-2xl bg-neutral-950/90 border border-amber-500/20 shadow-lg space-y-4">
                 <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
@@ -568,18 +671,63 @@ export const PreBookPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Pickup Timing & Special Instructions */}
+              {/* Home Delivery Address Card (if Home Delivery selected) */}
+              {orderType === 'Home Delivery' && (
+                <div className="p-5 rounded-2xl bg-neutral-950/90 border-2 border-amber-500/40 shadow-xl space-y-4">
+                  <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
+                    <MapPin className="w-4 h-4 text-amber-400" />
+                    Delivery Address & Contact Info *
+                  </h3>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                        Full Delivery Address *
+                      </label>
+                      <textarea
+                        rows={3}
+                        id="prebook-address-input"
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="House/Flat No., Street Name, Area / Landmark, City & Pincode"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                        Delivery Contact Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        id="prebook-delivery-phone-input"
+                        value={deliveryPhone}
+                        onChange={(e) => setDeliveryPhone(e.target.value)}
+                        placeholder="+91 98427 12345"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
+                      />
+                      <span className="text-[11px] text-amber-300/80 mt-1 block">
+                        ✓ Delivery driver will contact this number upon arrival.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Timing & Special Instructions */}
               <div className="p-5 rounded-2xl bg-neutral-950/90 border border-amber-500/20 shadow-lg space-y-4">
                 <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-2">
                   <Clock className="w-4 h-4 text-amber-400" />
-                  Pickup Slot & Timing (4 PM – 11 PM)
+                  {orderType === 'Home Delivery' ? 'Delivery Slot & Timing' : 'Pickup Slot & Timing (4 PM – 11 PM)'}
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Date selection */}
                   <div>
                     <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                      Pickup Date *
+                      {orderType === 'Home Delivery' ? 'Delivery Date *' : 'Pickup Date *'}
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       {getAvailableDates().slice(0, 3).map((d) => (
@@ -602,7 +750,7 @@ export const PreBookPage: React.FC = () => {
                   {/* Time slot selection */}
                   <div>
                     <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                      Pickup Time Slot * (Operating Hours)
+                      {orderType === 'Home Delivery' ? 'Requested Delivery Time *' : 'Pickup Time Slot * (Operating Hours)'}
                     </label>
                     <select
                       value={pickupTime}
@@ -617,7 +765,7 @@ export const PreBookPage: React.FC = () => {
                       ))}
                     </select>
                     <span className="text-[11px] text-amber-300/80 mt-1 block">
-                      ✓ Food will be grilled sizzling hot for this time.
+                      {orderType === 'Home Delivery' ? '✓ Freshly prepared and dispatched for your chosen time.' : '✓ Food will be grilled sizzling hot for this time.'}
                     </span>
                   </div>
                 </div>
@@ -625,14 +773,14 @@ export const PreBookPage: React.FC = () => {
                 {/* Special Instructions */}
                 <div>
                   <label className="block text-xs font-semibold text-neutral-300 mb-1">
-                    Special Cooking Instructions (Optional)
+                    Special Instructions (Optional)
                   </label>
                   <input
                     type="text"
                     id="prebook-instructions-input"
                     value={specialInstructions}
                     onChange={(e) => setSpecialInstructions(e.target.value)}
-                    placeholder="e.g. Less spicy, Extra garlic toum in separate cup, Crispy wrap"
+                    placeholder="e.g. Less spicy, Extra garlic toum, Ring doorbell on arrival"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 focus:border-amber-400 text-white text-sm outline-none"
                   />
                 </div>
@@ -677,14 +825,14 @@ export const PreBookPage: React.FC = () => {
                 BOOKING SUMMARY
               </h1>
               <p className="text-xs sm:text-sm text-neutral-400">
-                Please verify your order details before proceeding to demo payment
+                Please verify your order details before proceeding to payment
               </p>
             </div>
 
             <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-500/40 shadow-2xl space-y-6">
               
-              {/* Customer & Slot Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-amber-500/20 pb-4">
+              {/* Customer, Fulfillment & Slot Header */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-amber-500/20 pb-4">
                 <div>
                   <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
                     Customer Details
@@ -695,7 +843,17 @@ export const PreBookPage: React.FC = () => {
 
                 <div>
                   <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
-                    Pickup Schedule
+                    Fulfillment Mode
+                  </span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950 border border-amber-500/50 text-amber-300 text-xs font-black uppercase mt-1">
+                    {orderType === 'Home Delivery' ? <Truck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
+                    {orderType}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
+                    {orderType === 'Home Delivery' ? 'Delivery Slot' : 'Pickup Schedule'}
                   </span>
                   <div className="text-base font-bold text-white mt-0.5 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-amber-400" />
@@ -703,10 +861,21 @@ export const PreBookPage: React.FC = () => {
                   </div>
                   <div className="text-xs text-amber-300 font-bold flex items-center gap-1 mt-0.5">
                     <Clock className="w-3.5 h-3.5" />
-                    {pickupTime} (Kangayam Food Truck)
+                    {pickupTime} {orderType === 'Pickup' ? '(Kangayam Food Truck)' : '(Expected Window)'}
                   </div>
                 </div>
               </div>
+
+              {/* Home Delivery Address Display */}
+              {orderType === 'Home Delivery' && (
+                <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/30 text-xs space-y-1">
+                  <span className="text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4" /> Delivery Address & Contact Phone:
+                  </span>
+                  <div className="text-white font-medium pl-5 text-sm">{deliveryAddress}</div>
+                  <div className="text-amber-300 font-mono pl-5">Contact: {deliveryPhone || customerPhone}</div>
+                </div>
+              )}
 
               {/* Order Items Breakdown */}
               <div className="space-y-3">
@@ -1021,7 +1190,7 @@ export const PreBookPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-dashed border-amber-500/30 pb-4">
                 <div>
                   <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">
-                    Official Pickup Token ID
+                    Official Order Token ID
                   </span>
                   <div className="font-mono text-xl sm:text-2xl font-black text-amber-300">
                     {confirmedBooking.id}
@@ -1029,11 +1198,12 @@ export const PreBookPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-amber-950 border border-amber-500/60 text-amber-300 text-xs font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+                    {confirmedBooking.orderType === 'Home Delivery' ? <Truck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
+                    {confirmedBooking.orderType || 'Pickup'}
+                  </span>
                   <span className="px-3 py-1 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 text-xs font-black uppercase tracking-wider shadow-sm">
                     ● {confirmedBooking.status}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-medium">
-                    {confirmedBooking.paymentMethod}
                   </span>
                 </div>
               </div>
@@ -1047,12 +1217,12 @@ export const PreBookPage: React.FC = () => {
                 </div>
 
                 <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
-                  <span className="text-neutral-400 block mb-0.5">Pickup Date</span>
+                  <span className="text-neutral-400 block mb-0.5">{confirmedBooking.orderType === 'Home Delivery' ? 'Delivery Date' : 'Pickup Date'}</span>
                   <span className="font-bold text-white text-sm">{confirmedBooking.pickupDate}</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800">
-                  <span className="text-neutral-400 block mb-0.5">Pickup Slot</span>
+                  <span className="text-neutral-400 block mb-0.5">{confirmedBooking.orderType === 'Home Delivery' ? 'Delivery Time Window' : 'Pickup Slot'}</span>
                   <span className="font-bold text-amber-300 text-sm">{confirmedBooking.pickupTime}</span>
                 </div>
 
@@ -1064,6 +1234,17 @@ export const PreBookPage: React.FC = () => {
                 </div>
 
               </div>
+
+              {/* Home Delivery Address Display on Token */}
+              {confirmedBooking.orderType === 'Home Delivery' && confirmedBooking.deliveryAddress && (
+                <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-xs space-y-1">
+                  <span className="text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-amber-400" /> Delivery Address & Phone:
+                  </span>
+                  <div className="text-white font-medium pl-5 text-sm">{confirmedBooking.deliveryAddress}</div>
+                  <div className="text-amber-300 font-mono pl-5">Driver Contact Phone: {confirmedBooking.deliveryPhone || confirmedBooking.customerPhone}</div>
+                </div>
+              )}
 
               {/* Food Item & Add-ons info */}
               <div className="p-4 rounded-2xl bg-neutral-950 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

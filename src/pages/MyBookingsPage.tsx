@@ -15,6 +15,9 @@ import {
   ArrowRight,
   Printer,
   ChevronDown,
+  MapPin,
+  Truck,
+  Store,
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { Booking, BookingStatus } from '../types';
@@ -114,12 +117,16 @@ export const MyBookingsPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-[#180d0d] via-[#120707] to-[#0c0404] border border-amber-500/30 hover:border-amber-400/60 transition-all shadow-xl space-y-4"
               >
-                {/* Header: ID, Date, Status */}
+                {/* Header: ID, Order Type, Date, Status */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                     <div className="font-mono font-black text-amber-300 text-base sm:text-lg">
                       {booking.id}
                     </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-950/80 border border-amber-500/50 text-amber-300 flex items-center gap-1">
+                      {booking.orderType === 'Home Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                      {booking.orderType || 'Pickup'}
+                    </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${getStatusBadge(booking.status)}`}>
                       ● {booking.status}
                     </span>
@@ -172,11 +179,18 @@ export const MyBookingsPage: React.FC = () => {
                     <div>
                       <span className="text-neutral-500">Customer:</span> {booking.customerName}
                     </div>
-                    <div>
-                      <span className="text-neutral-500">Phone:</span> {booking.customerPhone}
-                    </div>
+                    {booking.orderType === 'Home Delivery' && booking.deliveryAddress ? (
+                      <div className="text-[11px] text-amber-300 font-medium line-clamp-2">
+                        <MapPin className="w-3 h-3 text-amber-400 inline mr-1" />
+                        {booking.deliveryAddress}
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-neutral-500">Phone:</span> {booking.customerPhone}
+                      </div>
+                    )}
                     <div className="text-emerald-400 font-semibold">
-                      Paid: ₹{booking.totalAmount}
+                      Paid: ₹{booking.totalAmount} ({booking.paymentMethod})
                     </div>
                   </div>
 
