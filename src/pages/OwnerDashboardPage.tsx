@@ -516,9 +516,13 @@ export const OwnerDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full bg-amber-950 border border-amber-500/60 text-amber-300 text-xs font-black uppercase flex items-center gap-1">
-                          {booking.orderType === 'Home Delivery' ? <Truck className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
-                          {booking.orderType || 'Pickup'}
+                        <span className={`px-3 py-1 rounded-full text-xs font-black uppercase flex items-center gap-1.5 shadow-md ${
+                          booking.orderType === 'Home Delivery' || booking.deliveryAddress
+                            ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                            : 'bg-amber-950 border border-amber-500/60 text-amber-300'
+                        }`}>
+                          {booking.orderType === 'Home Delivery' || booking.deliveryAddress ? <Truck className="w-4 h-4" /> : <Store className="w-4 h-4" />}
+                          {booking.orderType === 'Home Delivery' || booking.deliveryAddress ? '🏠 HOME DELIVERY' : '🏬 COUNTER PICKUP'}
                         </span>
                         <span className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-bold uppercase">
                           ● {booking.status}
@@ -529,17 +533,21 @@ export const OwnerDashboardPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Customer Info */}
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/* Customer Info & Phone Call Button */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2 text-neutral-200">
-                        <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="font-bold">{booking.customerName}</span>
+                        <User className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span className="font-bold text-sm text-white">{booking.customerName}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 text-amber-300 font-mono">
+                      <a
+                        href={`tel:${(booking.deliveryPhone || booking.customerPhone).replace(/\s+/g, '')}`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-mono font-bold text-xs transition-all w-fit cursor-pointer shadow-sm"
+                        title="Click to call customer"
+                      >
                         <Phone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>{booking.deliveryPhone || booking.customerPhone}</span>
-                      </div>
+                        <span>📞 {booking.deliveryPhone || booking.customerPhone}</span>
+                      </a>
 
                       <div className="flex items-center gap-2 text-neutral-300">
                         <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -552,13 +560,25 @@ export const OwnerDashboardPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Home Delivery Address Display */}
-                    {booking.orderType === 'Home Delivery' && booking.deliveryAddress && (
-                      <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs space-y-0.5">
-                        <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" /> Delivery Address:
-                        </span>
-                        <div className="text-white text-xs font-medium">{booking.deliveryAddress}</div>
+                    {/* Home Delivery Address Display (High-Visibility Box) */}
+                    {(booking.orderType === 'Home Delivery' || booking.deliveryAddress) && (
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 via-neutral-900 to-amber-950/80 border-2 border-red-500/60 shadow-[0_0_20px_rgba(220,38,38,0.25)] space-y-1">
+                        <div className="flex items-center justify-between text-amber-300 font-black uppercase tracking-wider text-xs border-b border-red-500/30 pb-1">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-red-400 animate-bounce" />
+                            CUSTOMER DELIVERY ADDRESS:
+                          </span>
+                          <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full">MUST DELIVER</span>
+                        </div>
+                        <div className="text-white text-sm font-bold leading-relaxed pt-1 select-all">
+                          {booking.deliveryAddress || 'Address not specified (Customer requested delivery)'}
+                        </div>
+                        <div className="text-[11px] text-amber-200/90 font-medium pt-0.5 flex items-center gap-1">
+                          <span>Phone:</span>
+                          <a href={`tel:${(booking.deliveryPhone || booking.customerPhone).replace(/\s+/g, '')}`} className="underline font-bold text-amber-300">
+                            {booking.deliveryPhone || booking.customerPhone}
+                          </a>
+                        </div>
                       </div>
                     )}
 
@@ -651,14 +671,25 @@ export const OwnerDashboardPage: React.FC = () => {
                         <CheckCircle2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono font-bold text-amber-300">{booking.id}</span>
                           <span className="font-bold text-white">{booking.customerName}</span>
-                          <span className="text-neutral-400">({booking.customerPhone})</span>
+                          <a href={`tel:${(booking.deliveryPhone || booking.customerPhone).replace(/\s+/g, '')}`} className="text-amber-400 font-mono font-semibold underline">
+                            📞 {booking.deliveryPhone || booking.customerPhone}
+                          </a>
+                          <span className="px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-amber-300 text-[10px] font-bold uppercase">
+                            {booking.orderType || 'Pickup'}
+                          </span>
                         </div>
                         <div className="text-neutral-300 mt-0.5">
                           {booking.foodItem.name} x{booking.quantity} • Slot: {booking.pickupTime} ({booking.pickupDate})
                         </div>
+                        {(booking.orderType === 'Home Delivery' || booking.deliveryAddress) && (
+                          <div className="text-amber-200/90 text-[11px] font-medium mt-1 flex items-center gap-1 bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/30">
+                            <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                            <span>Address: <strong>{booking.deliveryAddress || 'Delivery Address'}</strong></span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
