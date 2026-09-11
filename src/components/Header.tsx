@@ -27,7 +27,6 @@ export const Header: React.FC = () => {
     { name: 'Menu', path: '/menu' },
     { name: 'Pre-Book', path: '/pre-book' },
     { name: 'My Bookings', path: '/bookings', count: activeBookingsCount },
-    { name: 'Owner Portal', path: '/owner', highlight: isOwner },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];

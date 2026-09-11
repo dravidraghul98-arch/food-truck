@@ -273,8 +273,8 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Bottom Register CTA */}
-          <div className="mt-6 pt-5 border-t border-neutral-800 text-center">
+          {/* Bottom Register & Owner Portal CTA */}
+          <div className="mt-6 pt-5 border-t border-neutral-800 space-y-4 text-center">
             <p className="text-xs sm:text-sm text-neutral-400">
               New to Arabian Delights?{' '}
               <Link
@@ -285,6 +285,27 @@ export const LoginPage: React.FC = () => {
                 Create Free Account
               </Link>
             </p>
+
+            {/* Dedicated Owner Portal Entry Box */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/60 border border-amber-500/30 flex items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-black font-bold flex items-center justify-center text-xs shrink-0">
+                  👑
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-amber-300">Food Truck Owner?</div>
+                  <div className="text-[10px] text-neutral-400">Access live orders, stock control & inquiries</div>
+                </div>
+              </div>
+
+              <Link
+                to="/owner"
+                id="goto-owner-portal-btn"
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider transition-all shadow-md shrink-0 cursor-pointer"
+              >
+                Owner Portal ➔
+              </Link>
+            </div>
           </div>
 
           <div className="mt-4 text-center">
