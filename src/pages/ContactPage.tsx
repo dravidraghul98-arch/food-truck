@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
+import { useMessages } from '../context/MessageContext';
 
 export const ContactPage: React.FC = () => {
+  const { sendCustomerMessage } = useMessages();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -11,19 +13,29 @@ export const ContactPage: React.FC = () => {
   const [isSent, setIsSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      await sendCustomerMessage({
+        name,
+        email,
+        phone,
+        message,
+      });
+
       setIsSubmitting(false);
       setIsSent(true);
       setName('');
       setEmail('');
       setPhone('');
       setMessage('');
-    }, 1000);
+    } catch (err) {
+      console.error('Failed sending message:', err);
+      setIsSubmitting(false);
+    }
   };
 
   return (

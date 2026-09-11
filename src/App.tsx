@@ -7,6 +7,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BookingProvider } from './context/BookingContext';
+import { MessageProvider } from './context/MessageContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 
@@ -61,54 +62,56 @@ export default function App() {
     <HashRouter>
       <AuthProvider>
         <BookingProvider>
-          <AppLayout>
-            <Routes>
-              {/* Root redirect */}
-              <Route path="/" element={<IndexRedirect />} />
+          <MessageProvider>
+            <AppLayout>
+              <Routes>
+                {/* Root redirect */}
+                <Route path="/" element={<IndexRedirect />} />
 
-              {/* Public Auth routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+                {/* Public Auth routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              {/* Main App routes */}
-              <Route path="/home" element={<HomePage />} />
-              <Route path="/menu" element={<MenuPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/contact" element={<ContactPage />} />
+                {/* Main App routes */}
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/menu" element={<MenuPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
 
-              {/* Protected / Interactive Customer Booking routes */}
-              <Route
-                path="/pre-book"
-                element={
-                  <ProtectedRoute>
-                    <PreBookPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/bookings"
-                element={
-                  <ProtectedRoute>
-                    <MyBookingsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected / Interactive Customer Booking routes */}
+                <Route
+                  path="/pre-book"
+                  element={
+                    <ProtectedRoute>
+                      <PreBookPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/bookings"
+                  element={
+                    <ProtectedRoute>
+                      <MyBookingsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Owner Portal Route */}
-              <Route path="/owner" element={<OwnerDashboardPage />} />
+                {/* Owner Portal Route */}
+                <Route path="/owner" element={<OwnerDashboardPage />} />
 
-              {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/home" replace />} />
-            </Routes>
-          </AppLayout>
+                {/* Fallback route */}
+                <Route path="*" element={<Navigate to="/home" replace />} />
+              </Routes>
+            </AppLayout>
+          </MessageProvider>
         </BookingProvider>
       </AuthProvider>
     </HashRouter>

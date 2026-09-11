@@ -116,8 +116,9 @@ async function run() {
     `);
     console.log('Bookings table created.');
 
-    // 5. Enable Realtime on Bookings
+    // 5. Enable Realtime & Replica Identity Full on Bookings
     await client.query(`
+      ALTER TABLE public.bookings REPLICA IDENTITY FULL;
       DO $$
       BEGIN
         IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -130,9 +131,42 @@ async function run() {
         END IF;
       END $$;
     `);
-    console.log('Realtime publication enabled on bookings table.');
+    console.log('Realtime publication and REPLICA IDENTITY FULL enabled on bookings table.');
 
-    // 6. Grant permissions to anon and authenticated roles
+    // 6. Create Customer Messages table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.customer_messages (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        message TEXT NOT NULL,
+        read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      ALTER TABLE public.customer_messages ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS "Messages viewable by everyone" ON public.customer_messages;
+      CREATE POLICY "Messages viewable by everyone" ON public.customer_messages FOR SELECT TO authenticated, anon USING (true);
+      DROP POLICY IF EXISTS "Messages insertable by everyone" ON public.customer_messages;
+      CREATE POLICY "Messages insertable by everyone" ON public.customer_messages FOR INSERT TO authenticated, anon WITH CHECK (true);
+      DROP POLICY IF EXISTS "Messages updatable by everyone" ON public.customer_messages;
+      CREATE POLICY "Messages updatable by everyone" ON public.customer_messages FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
+      ALTER TABLE public.customer_messages REPLICA IDENTITY FULL;
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables 
+            WHERE pubname = 'supabase_realtime' AND tablename = 'customer_messages'
+          ) THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.customer_messages;
+          END IF;
+        END IF;
+      END $$;
+    `);
+    console.log('Customer messages table created and enabled for Realtime.');
+
+    // 7. Grant permissions to anon and authenticated roles
     await client.query(`
       GRANT USAGE ON SCHEMA public TO anon, authenticated;
       GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;

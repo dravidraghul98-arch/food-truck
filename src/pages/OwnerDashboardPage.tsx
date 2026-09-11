@@ -23,18 +23,118 @@ import {
   MapPin,
   Truck,
   Store,
+  Bell,
+  Volume2,
+  MessageSquare,
+  Mail,
+  Eye,
+  EyeOff,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
+import { useMessages } from '../context/MessageContext';
 import { foodItems, getStoredStockMap, saveStockStatus } from '../data/foodData';
-import { Booking, BookingStatus, FoodItem } from '../types';
+import { Booking, BookingStatus, FoodItem, CustomerMessage } from '../types';
+
+// Web Audio API Chime synthesizer for instant order notifications
+const playBookingChime = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5 note
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    console.warn('Audio chime notice:', e);
+  }
+};
+
+// Web Audio API Chime synthesizer for instant customer message notifications
+const playMessageChime = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+    osc.frequency.setValueAtTime(987.77, ctx.currentTime + 0.12); // B5
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (e) {
+    console.warn('Message chime notice:', e);
+  }
+};
 
 export const OwnerDashboardPage: React.FC = () => {
   const { user, login } = useAuth();
-  const { bookings, updateBookingStatus } = useBooking();
+  const { bookings, updateBookingStatus, latestRealtimeEvent, refreshBookings } = useBooking();
+  const { messages, unreadCount, latestRealtimeMessageEvent, markMessageRead, refreshMessages } = useMessages();
 
-  // Tab selection: 'active' | 'history' | 'stock'
-  const [activeTab, setActiveTab] = useState<'active' | 'history' | 'stock'>('active');
+  // Tab selection: 'active' | 'history' | 'stock' | 'messages'
+  const [activeTab, setActiveTab] = useState<'active' | 'history' | 'stock' | 'messages'>('active');
+  const [messageFilter, setMessageFilter] = useState<'all' | 'unread'>('all');
+
+  // Live Toast Banner state
+  const [liveBanner, setLiveBanner] = useState<{ message: string; booking?: Booking; customerMsg?: CustomerMessage } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
+  // Listen for real-time booking events from BookingContext
+  useEffect(() => {
+    if (latestRealtimeEvent?.booking) {
+      const b = latestRealtimeEvent.booking;
+      playBookingChime();
+      setLiveBanner({
+        message: `Customer ${b.customerName} just placed order ${b.id} for ₹${b.totalAmount}!`,
+        booking: b,
+      });
+      setHighlightedBookingId(b.id);
+
+      // Auto dismiss banner after 8 seconds
+      const timer = setTimeout(() => {
+        setLiveBanner(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestRealtimeEvent]);
+
+  // Listen for real-time customer message events from MessageContext
+  useEffect(() => {
+    if (latestRealtimeMessageEvent?.message) {
+      const msg = latestRealtimeMessageEvent.message;
+      playMessageChime();
+      setLiveBanner({
+        message: `Customer ${msg.name} sent an inquiry: "${msg.message.length > 50 ? msg.message.slice(0, 50) + '...' : msg.message}"`,
+        customerMsg: msg,
+      });
+      setHighlightedMessageId(msg.id);
+
+      // Auto dismiss banner after 10 seconds
+      const timer = setTimeout(() => {
+        setLiveBanner(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestRealtimeMessageEvent]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([refreshBookings(), refreshMessages()]);
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   // Owner Login Modal State if not authenticated as owner
   const [ownerEmail, setOwnerEmail] = useState('');
@@ -193,11 +293,53 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-black/60 p-2.5 rounded-2xl border border-amber-500/30 text-xs text-neutral-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>LoggedIn: <strong className="text-amber-300">owner@arabiandelights.com</strong></span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              className="p-2.5 rounded-2xl bg-black/60 hover:bg-neutral-900 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+              title="Refresh Live Bookings"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-300' : ''}`} />
+              <span className="hidden sm:inline">Sync Live</span>
+            </button>
+
+            <div className="flex items-center gap-3 bg-black/60 p-2.5 rounded-2xl border border-amber-500/30 text-xs text-neutral-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>LoggedIn: <strong className="text-amber-300">owner@arabiandelights.com</strong></span>
+            </div>
           </div>
         </div>
+
+        {/* Live Notification Alert Toast Banner */}
+        {liveBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-neutral-950 shadow-[0_0_40px_rgba(245,158,11,0.6)] flex items-center justify-between border-2 border-amber-300 font-bold"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-neutral-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+                <Bell className="w-5 h-5 animate-bounce" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-black tracking-widest text-neutral-900">
+                  ⚡ REAL-TIME BOOKING RECEIVED!
+                </div>
+                <div className="text-sm font-black text-black">
+                  {liveBanner.message}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setLiveBanner(null)}
+              className="px-3 py-1 rounded-lg bg-black text-amber-400 text-xs font-black uppercase hover:bg-neutral-900 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </motion.div>
+        )}
 
         {/* Quick Stats Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -239,7 +381,7 @@ export const OwnerDashboardPage: React.FC = () => {
         </div>
 
         {/* Tab Navigation Controls */}
-        <div className="flex items-center justify-center sm:justify-start gap-2 border-b border-neutral-800 pb-3">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 border-b border-neutral-800 pb-3">
           <button
             type="button"
             id="owner-tab-active-orders"
@@ -251,7 +393,7 @@ export const OwnerDashboardPage: React.FC = () => {
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>Active Customer Orders ({activeBookings.length})</span>
+            <span>Active Orders ({activeBookings.length})</span>
           </button>
 
           <button
@@ -279,7 +421,26 @@ export const OwnerDashboardPage: React.FC = () => {
             }`}
           >
             <PackageCheck className="w-4 h-4" />
-            <span>Product Stock Control</span>
+            <span>Stock Control</span>
+          </button>
+
+          <button
+            type="button"
+            id="owner-tab-customer-messages"
+            onClick={() => setActiveTab('messages')}
+            className={`py-2.5 px-5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer relative ${
+              activeTab === 'messages'
+                ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                : 'bg-neutral-900 text-neutral-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Customer Inquiries</span>
+            {unreadCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                {unreadCount} NEW
+              </span>
+            )}
           </button>
         </div>
 
@@ -310,11 +471,22 @@ export const OwnerDashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="p-5 rounded-2xl bg-gradient-to-b from-[#180d0d] via-[#120707] to-[#0a0404] border-2 border-amber-500/40 shadow-xl space-y-4 relative overflow-hidden"
-                  >
+                {activeBookings.map((booking) => {
+                  const isNewHighlight = booking.id === highlightedBookingId;
+                  return (
+                    <div
+                      key={booking.id}
+                      className={`p-5 rounded-2xl bg-gradient-to-b from-[#180d0d] via-[#120707] to-[#0a0404] border-2 shadow-xl space-y-4 relative overflow-hidden transition-all duration-500 ${
+                        isNewHighlight
+                          ? 'border-amber-400 ring-4 ring-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.5)] animate-pulse'
+                          : 'border-amber-500/40'
+                      }`}
+                    >
+                      {isNewHighlight && (
+                        <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-black uppercase px-3 py-0.5 rounded-bl-xl tracking-widest flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" /> JUST ARRIVED REAL-TIME
+                        </div>
+                      )}
                     {/* Token ID & Payment Pill */}
                     <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
                       <div>
@@ -414,8 +586,9 @@ export const OwnerDashboardPage: React.FC = () => {
                       MARK AS COLLECTED (MOVE TO HISTORY)
                     </button>
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
             )}
           </motion.div>
         )}
@@ -570,6 +743,166 @@ export const OwnerDashboardPage: React.FC = () => {
                 );
               })}
             </div>
+          </motion.div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 4: CUSTOMER INQUIRIES & MESSAGES */}
+        {/* ============================================================ */}
+        {activeTab === 'messages' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white font-['Cinzel'] flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-amber-400" />
+                  Real-Time Customer Inquiries ({messages.length})
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Messages submitted live from the Contact Page inquiry form
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMessageFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    messageFilter === 'all'
+                      ? 'bg-amber-500 text-black'
+                      : 'bg-neutral-900 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  All ({messages.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMessageFilter('unread')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    messageFilter === 'unread'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-neutral-900 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Unread ({unreadCount})
+                </button>
+              </div>
+            </div>
+
+            {(() => {
+              const filteredMsgs = messageFilter === 'unread' ? messages.filter((m) => !m.read) : messages;
+
+              if (filteredMsgs.length === 0) {
+                return (
+                  <div className="p-12 text-center rounded-3xl bg-neutral-950/60 border border-neutral-800 space-y-3">
+                    <MessageSquare className="w-12 h-12 text-neutral-600 mx-auto" />
+                    <h3 className="text-base font-bold text-white font-['Cinzel']">
+                      No Customer Inquiries
+                    </h3>
+                    <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+                      {messageFilter === 'unread'
+                        ? 'All customer messages have been marked as read.'
+                        : 'No inquiry messages have been received yet from the Contact Page.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {filteredMsgs.map((msg) => {
+                    const isHighlighted = msg.id === highlightedMessageId;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`p-5 rounded-2xl bg-gradient-to-b from-[#180d0d] via-[#120707] to-[#0a0404] border-2 shadow-xl space-y-3 relative overflow-hidden transition-all duration-500 ${
+                          isHighlighted
+                            ? 'border-amber-400 ring-4 ring-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.5)] animate-pulse'
+                            : msg.read
+                            ? 'border-neutral-800 opacity-85'
+                            : 'border-amber-500/40 bg-neutral-950/80'
+                        }`}
+                      >
+                        {/* Header Info */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/40 text-amber-400 font-bold flex items-center justify-center text-sm shrink-0">
+                              {msg.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm font-['Cinzel']">
+                                  {msg.name}
+                                </span>
+                                {!msg.read && (
+                                  <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black uppercase tracking-wider">
+                                    UNREAD
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-neutral-400 mt-0.5">
+                                <a href={`mailto:${msg.email}`} className="text-amber-300 hover:underline flex items-center gap-1">
+                                  <Mail className="w-3 h-3" /> {msg.email}
+                                </a>
+                                {msg.phone && (
+                                  <a href={`tel:${msg.phone}`} className="text-emerald-400 hover:underline flex items-center gap-1 font-mono">
+                                    <Phone className="w-3 h-3" /> {msg.phone}
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-neutral-500 font-mono">
+                            {new Date(msg.createdAt).toLocaleString('en-IN', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Message Text Content */}
+                        <div className="p-3.5 rounded-xl bg-black/60 border border-neutral-800 text-xs text-neutral-200 leading-relaxed font-sans whitespace-pre-wrap">
+                          "{msg.message}"
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="button"
+                            onClick={() => markMessageRead(msg.id, !msg.read)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                              msg.read
+                                ? 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-400'
+                                : 'bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300'
+                            }`}
+                          >
+                            {msg.read ? (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5" />
+                                Mark as Unread
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-3.5 h-3.5" />
+                                Mark as Read
+                              </>
+                            )}
+                          </button>
+
+                          <a
+                            href={`mailto:${msg.email}?subject=Re: Arabian Delights Inquiry from ${encodeURIComponent(msg.name)}`}
+                            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs flex items-center gap-1.5 shadow-md"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Reply via Email
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </motion.div>
         )}
 

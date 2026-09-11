@@ -142,3 +142,74 @@ export async function updateSupabaseBookingStatus(bookingId: string, status: str
     return false;
   }
 }
+
+// ============================================================================
+// CUSTOMER MESSAGES API
+// ============================================================================
+
+export async function fetchSupabaseMessages(): Promise<import('../types').CustomerMessage[]> {
+  try {
+    const { data, error } = await supabase
+      .from('customer_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      phone: m.phone || '',
+      message: m.message,
+      read: Boolean(m.read),
+      createdAt: m.created_at,
+    }));
+  } catch (err) {
+    console.error('Error fetching messages from Supabase:', err);
+    return [];
+  }
+}
+
+export async function createSupabaseMessage(msg: import('../types').CustomerMessage): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('customer_messages').insert([{
+      id: msg.id,
+      name: msg.name,
+      email: msg.email,
+      phone: msg.phone || '',
+      message: msg.message,
+      read: msg.read,
+      created_at: msg.createdAt,
+    }]);
+
+    if (error) {
+      console.error('Error inserting message into Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed saving message to Supabase:', err);
+    return false;
+  }
+}
+
+export async function updateSupabaseMessageReadStatus(messageId: string, read: boolean): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('customer_messages')
+      .update({ read })
+      .eq('id', messageId);
+
+    if (error) {
+      console.error('Error updating message status in Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed updating message status:', err);
+    return false;
+  }
+}

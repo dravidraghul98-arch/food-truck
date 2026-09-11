@@ -24,10 +24,16 @@ interface PreBookDraft {
   specialInstructions: string;
 }
 
+export interface RealtimeBookingEvent {
+  booking: Booking;
+  timestamp: number;
+}
+
 interface BookingContextType {
   bookings: Booking[];
   activeDraft: PreBookDraft | null;
   selectedFoodForModal: FoodItem | null;
+  latestRealtimeEvent: RealtimeBookingEvent | null;
   openFoodModal: (item: FoodItem) => void;
   closeFoodModal: () => void;
   setDraftFromFood: (
@@ -51,17 +57,22 @@ interface BookingContextType {
   cancelBooking: (bookingId: string) => void;
   updateBookingStatus: (bookingId: string, newStatus: BookingStatus) => void;
   getBookingById: (bookingId: string) => Booking | undefined;
+  refreshBookings: () => Promise<void>;
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 const BOOKINGS_STORAGE_KEY = 'arabian_delights_customer_bookings';
+const BROADCAST_CHANNEL_NAME = 'arabian_delights_realtime_orders';
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedFoodForModal, setSelectedFoodForModal] = useState<FoodItem | null>(null);
   const [activeDraft, setActiveDraft] = useState<PreBookDraft | null>(null);
+  const [latestRealtimeEvent, setLatestRealtimeEvent] = useState<RealtimeBookingEvent | null>(null);
 
-  // Pure real-time bookings starting empty
+  const globalBroadcastRef = React.useRef<any>(null);
+
+  // Real-time bookings state starting with localStorage fallback
   const [bookings, setBookings] = useState<Booking[]>(() => {
     try {
       const stored = localStorage.getItem(BOOKINGS_STORAGE_KEY);
@@ -74,60 +85,139 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return [];
   });
 
-  // Fetch live real-time bookings from Supabase database on mount, merging with local state
-  useEffect(() => {
-    async function loadBookings() {
-      const dbBookings = await fetchSupabaseBookings();
-      if (dbBookings && dbBookings.length > 0) {
-        setBookings((prev) => {
-          const map = new Map<string, Booking>();
-          // DB bookings first
-          dbBookings.forEach((b) => map.set(b.id, b));
-          // Local/recent bookings take precedence or get merged
-          prev.forEach((b) => map.set(b.id, b));
-          return Array.from(map.values());
-        });
+  // Helper to cleanly merge incoming bookings without losing existing ones
+  const mergeIncomingBooking = (newBooking: Booking, isNewRealtime: boolean = true) => {
+    setBookings((prev) => {
+      const exists = prev.some((b) => b.id === newBooking.id);
+      if (exists) {
+        return prev.map((b) => (b.id === newBooking.id ? { ...b, ...newBooking } : b));
       }
+      return [newBooking, ...prev];
+    });
+
+    if (isNewRealtime) {
+      setLatestRealtimeEvent({
+        booking: newBooking,
+        timestamp: Date.now(),
+      });
     }
+  };
+
+  // Helper function to fetch live bookings from Supabase & detect new cross-account orders
+  const loadBookings = async () => {
+    const dbBookings = await fetchSupabaseBookings();
+    if (dbBookings && dbBookings.length > 0) {
+      setBookings((prev) => {
+        const prevIds = new Set(prev.map((b) => b.id));
+        const map = new Map<string, Booking>();
+        let brandNewOrder: Booking | null = null;
+
+        dbBookings.forEach((b) => {
+          map.set(b.id, b);
+          // If a new booking arrived in DB from another account/device that wasn't in state
+          if (!prevIds.has(b.id)) {
+            if (!brandNewOrder || new Date(b.createdAt).getTime() > new Date(brandNewOrder.createdAt).getTime()) {
+              brandNewOrder = b;
+            }
+          }
+        });
+
+        prev.forEach((b) => {
+          if (!map.has(b.id)) {
+            map.set(b.id, b);
+          }
+        });
+
+        // Trigger live chime & banner notification if a brand new booking was fetched from DB
+        if (brandNewOrder && prev.length > 0) {
+          setLatestRealtimeEvent({
+            booking: brandNewOrder,
+            timestamp: Date.now(),
+          });
+        }
+
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+    }
+  };
+
+  // Fetch live real-time bookings from Supabase database on mount
+  useEffect(() => {
     loadBookings();
   }, []);
 
-
-  // Subscribe to Realtime Supabase changes on public.bookings table
+  // 1. Supabase Persistent Global Broadcast & Postgres CDC Channels
   useEffect(() => {
-    const channel = supabase
-      .channel('realtime:public:bookings')
+    // Persistent Global WebSocket Broadcast Channel
+    const broadcastChannel = supabase.channel('realtime:public:bookings_global_channel');
+    broadcastChannel
+      .on('broadcast', { event: 'NEW_BOOKING' }, (payload) => {
+        console.log('[Global Broadcast] New booking received from remote account:', payload);
+        if (payload?.payload?.id) {
+          mergeIncomingBooking(payload.payload, true);
+        }
+      })
+      .on('broadcast', { event: 'UPDATE_STATUS' }, (payload) => {
+        if (payload?.payload?.id && payload?.payload?.status) {
+          setBookings((prev) =>
+            prev.map((b) =>
+              b.id === payload.payload.id ? { ...b, status: payload.payload.status } : b
+            )
+          );
+        }
+      })
+      .subscribe((status) => {
+        console.log('[Global Broadcast Channel Status]:', status);
+      });
+
+    globalBroadcastRef.current = broadcastChannel;
+
+    // Postgres CDC listener on 'bookings' table
+    const cdcChannel = supabase
+      .channel('realtime:public:bookings_cdc')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bookings' },
         (payload) => {
-          console.log('Real-time database change detected:', payload);
+          console.log('[Supabase Realtime CDC] DB change:', payload);
           if (payload.eventType === 'INSERT') {
             const newRow = payload.new;
-            const newBooking: Booking = {
-              id: newRow.id,
-              userId: newRow.user_id || 'usr-guest',
-              customerName: newRow.customer_name,
-              customerPhone: newRow.customer_phone,
-              customerEmail: newRow.customer_email,
-              orderType: newRow.order_type || 'Pickup',
-              deliveryAddress: newRow.delivery_address || '',
-              deliveryPhone: newRow.delivery_phone || newRow.customer_phone || '',
-              foodItem: typeof newRow.food_item_snapshot === 'string' ? JSON.parse(newRow.food_item_snapshot) : newRow.food_item_snapshot,
-              quantity: newRow.quantity,
-              selectedAddOns: typeof newRow.selected_add_ons === 'string' ? JSON.parse(newRow.selected_add_ons) : newRow.selected_add_ons || [],
-              itemBasePrice: Number(newRow.item_base_price),
-              addOnsTotal: Number(newRow.add_ons_total),
-              totalAmount: Number(newRow.total_amount),
-              pickupDate: newRow.pickup_date,
-              pickupTime: newRow.pickup_time,
-              specialInstructions: newRow.special_instructions || '',
-              status: newRow.status,
-              paymentMethod: newRow.payment_method,
-              paymentStatus: newRow.payment_status,
-              createdAt: newRow.created_at,
-            };
-            setBookings((prev) => [newBooking, ...prev.filter((b) => b.id !== newBooking.id)]);
+            try {
+              const newBooking: Booking = {
+                id: newRow.id,
+                userId: newRow.user_id || 'usr-guest',
+                customerName: newRow.customer_name,
+                customerPhone: newRow.customer_phone,
+                customerEmail: newRow.customer_email,
+                orderType: newRow.order_type || 'Pickup',
+                deliveryAddress: newRow.delivery_address || '',
+                deliveryPhone: newRow.delivery_phone || newRow.customer_phone || '',
+                foodItem:
+                  typeof newRow.food_item_snapshot === 'string'
+                    ? JSON.parse(newRow.food_item_snapshot)
+                    : newRow.food_item_snapshot,
+                quantity: newRow.quantity,
+                selectedAddOns:
+                  typeof newRow.selected_add_ons === 'string'
+                    ? JSON.parse(newRow.selected_add_ons)
+                    : newRow.selected_add_ons || [],
+                itemBasePrice: Number(newRow.item_base_price),
+                addOnsTotal: Number(newRow.add_ons_total),
+                totalAmount: Number(newRow.total_amount),
+                pickupDate: newRow.pickup_date,
+                pickupTime: newRow.pickup_time,
+                specialInstructions: newRow.special_instructions || '',
+                status: newRow.status,
+                paymentMethod: newRow.payment_method,
+                paymentStatus: newRow.payment_status,
+                createdAt: newRow.created_at,
+              };
+              mergeIncomingBooking(newBooking, true);
+            } catch (err) {
+              console.error('Error parsing Realtime CDC insertion payload:', err);
+            }
           } else if (payload.eventType === 'UPDATE') {
             const updatedRow = payload.new;
             setBookings((prev) =>
@@ -139,10 +229,62 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(broadcastChannel);
+      supabase.removeChannel(cdcChannel);
     };
   }, []);
 
+  // 2. Browser BroadcastChannel API & storage event listener for 0ms cross-tab sync
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'NEW_BOOKING' && event.data?.booking) {
+            mergeIncomingBooking(event.data.booking, true);
+          } else if (event.data?.type === 'UPDATE_STATUS') {
+            setBookings((prev) =>
+              prev.map((b) =>
+                b.id === event.data.bookingId ? { ...b, status: event.data.status } : b
+              )
+            );
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel error:', e);
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === BOOKINGS_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setBookings(parsed);
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // 3. Periodic Background Polling Fallback (Every 5 Seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadBookings();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sync to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(bookings));
@@ -224,7 +366,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { user } = useAuth();
 
   const createBooking = async (paymentMethod: string): Promise<Booking> => {
-    // If activeDraft is missing, construct a safe fallback draft
     const draft = activeDraft || {
       foodItem: selectedFoodForModal || {
         id: 'shawarma-chicken-special',
@@ -287,13 +428,35 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       status: 'Confirmed',
       paymentMethod,
       paymentStatus: paymentMethod === 'Pay on Pickup' ? 'PAY_ON_PICKUP' : 'PAID',
-
       createdAt: new Date().toISOString(),
     };
 
-    setBookings((prev) => [newBooking, ...prev.filter((b) => b.id !== newBooking.id)]);
+    // Optimistically merge into local state & trigger real-time event
+    mergeIncomingBooking(newBooking, true);
 
-    // Save directly into Supabase PostgreSQL database (non-blocking for instant UI response)
+    // 1. Broadcast via browser BroadcastChannel (0ms local tabs)
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        bc.postMessage({ type: 'NEW_BOOKING', booking: newBooking });
+        bc.close();
+      }
+    } catch {}
+
+    // 2. Broadcast via persistent global Supabase Realtime WebSocket (cross-device/network)
+    try {
+      if (globalBroadcastRef.current) {
+        globalBroadcastRef.current.send({
+          type: 'broadcast',
+          event: 'NEW_BOOKING',
+          payload: newBooking,
+        });
+      }
+    } catch (err) {
+      console.warn('Global broadcast send error:', err);
+    }
+
+    // 3. Save directly into Supabase PostgreSQL database
     createSupabaseBooking(newBooking).catch((err) => {
       console.warn('Background Supabase booking record error:', err);
     });
@@ -301,13 +464,20 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return newBooking;
   };
 
-
-
   const cancelBooking = (bookingId: string) => {
     setBookings((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, status: 'Cancelled' as BookingStatus } : b))
     );
     updateSupabaseBookingStatus(bookingId, 'Cancelled');
+    
+    // Broadcast status update
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        bc.postMessage({ type: 'UPDATE_STATUS', bookingId, status: 'Cancelled' });
+        bc.close();
+      }
+    } catch {}
   };
 
   const updateBookingStatus = (bookingId: string, newStatus: BookingStatus) => {
@@ -315,6 +485,15 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
     );
     updateSupabaseBookingStatus(bookingId, newStatus);
+
+    // Broadcast status update
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        bc.postMessage({ type: 'UPDATE_STATUS', bookingId, status: newStatus });
+        bc.close();
+      }
+    } catch {}
   };
 
   const getBookingById = (bookingId: string) => {
@@ -327,6 +506,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         bookings,
         activeDraft,
         selectedFoodForModal,
+        latestRealtimeEvent,
         openFoodModal,
         closeFoodModal,
         setDraftFromFood,
@@ -337,6 +517,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cancelBooking,
         updateBookingStatus,
         getBookingById,
+        refreshBookings: loadBookings,
       }}
     >
       {children}
@@ -351,3 +532,4 @@ export const useBooking = () => {
   }
   return context;
 };
+
