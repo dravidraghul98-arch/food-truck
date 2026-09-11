@@ -22,15 +22,28 @@ import {
 import { useBooking } from '../context/BookingContext';
 import { Booking, BookingStatus } from '../types';
 
+import { useAuth } from '../context/AuthContext';
+
 export const MyBookingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { bookings, cancelBooking, updateBookingStatus } = useBooking();
   
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [activeQrModal, setActiveQrModal] = useState<Booking | null>(null);
   const [cancelPromptId, setCancelPromptId] = useState<string | null>(null);
 
-  const filteredBookings = bookings.filter((b) => {
+  // Filter bookings to ONLY include those created by the logged-in customer account
+  const myBookings = bookings.filter((b) => {
+    if (!user) return false;
+    return (
+      (b.userId && user.id && b.userId === user.id) ||
+      (b.customerEmail && user.email && b.customerEmail.toLowerCase() === user.email.toLowerCase()) ||
+      (b.customerName && user.name && b.customerName.toLowerCase() === user.name.toLowerCase())
+    );
+  });
+
+  const filteredBookings = myBookings.filter((b) => {
     if (filterStatus === 'All') return true;
     if (filterStatus === 'Active') return b.status === 'Confirmed' || b.status === 'Preparing' || b.status === 'Ready';
     if (filterStatus === 'Completed') return b.status === 'Completed';

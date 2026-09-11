@@ -11,9 +11,17 @@ export const Header: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const activeBookingsCount = bookings.filter(
-    (b) => b.status === 'Confirmed' || b.status === 'Preparing' || b.status === 'Ready'
-  ).length;
+  // Filter bookings to only include those belonging to the currently logged-in customer
+  const myActiveBookingsCount = bookings.filter((b) => {
+    if (!user) return false;
+    const isUserBooking =
+      (b.userId && user.id && b.userId === user.id) ||
+      (b.customerEmail && user.email && b.customerEmail.toLowerCase() === user.email.toLowerCase()) ||
+      (b.customerName && user.name && b.customerName.toLowerCase() === user.name.toLowerCase());
+
+    if (!isUserBooking) return false;
+    return b.status === 'Confirmed' || b.status === 'Preparing' || b.status === 'Ready';
+  }).length;
 
   const handleLogout = () => {
     logout();
@@ -26,7 +34,7 @@ export const Header: React.FC = () => {
     { name: 'Home', path: '/home' },
     { name: 'Menu', path: '/menu' },
     { name: 'Pre-Book', path: '/pre-book' },
-    { name: 'My Bookings', path: '/bookings', count: activeBookingsCount },
+    { name: 'My Bookings', path: '/bookings', count: myActiveBookingsCount },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
