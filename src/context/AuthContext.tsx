@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(ownerUser);
           return { success: true };
         } else {
-          return { success: false, error: 'Incorrect owner password. Default password is owner123' };
+          return { success: false, error: 'Incorrect owner password. Please try again.' };
         }
       }
 

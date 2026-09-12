@@ -59,7 +59,7 @@ export const Header: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-neutral-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span className="font-bold text-amber-300">owner@arabiandelights.com</span>
+                <span className="font-bold text-amber-300">Owner Manager</span>
               </div>
 
               <button

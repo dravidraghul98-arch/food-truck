@@ -137,7 +137,7 @@ export const OwnerDashboardPage: React.FC = () => {
   };
 
   // Owner Login Modal State if not authenticated as owner
-  const [ownerEmail, setOwnerEmail] = useState('owner@arabiandelights.com');
+  const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPassword, setOwnerPassword] = useState('');
   const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -259,10 +259,6 @@ export const OwnerDashboardPage: React.FC = () => {
                   {showOwnerPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1 font-medium">
-                <span>💡 Default owner password:</span>
-                <strong className="text-amber-300 font-bold underline">owner123</strong>
-              </p>
             </div>
 
             <button
@@ -323,7 +319,7 @@ export const OwnerDashboardPage: React.FC = () => {
 
             <div className="flex items-center gap-3 bg-black/60 p-2.5 rounded-2xl border border-amber-500/30 text-xs text-neutral-300">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>LoggedIn: <strong className="text-amber-300">owner@arabiandelights.com</strong></span>
+              <span>LoggedIn: <strong className="text-amber-300">Owner Manager</strong></span>
             </div>
           </div>
         </div>

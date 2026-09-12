@@ -1,4 +1,4 @@
-export type FoodCategory = 'Shawarmas' | 'Plates' | 'Rice Items' | 'Starters' | 'Drinks' | 'Combos';
+export type FoodCategory = 'Shawarmas' | 'Plates' | 'Rice Items' | 'Noodles' | 'Starters' | 'Drinks' | 'Combos';
 
 export type FoodType = 'veg' | 'non-veg';
 
