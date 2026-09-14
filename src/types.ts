@@ -9,6 +9,12 @@ export interface FoodAddOn {
   defaultSelected?: boolean;
 }
 
+export interface ServingOption {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface FoodItem {
   id: string;
   name: string;
@@ -23,6 +29,7 @@ export interface FoodItem {
   prepTimeMinutes: number;
   rating: number;
   addOns: FoodAddOn[];
+  servingOptions?: ServingOption[];
   ingredients?: string[];
   calories?: string;
 }

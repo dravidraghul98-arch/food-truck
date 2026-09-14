@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Check, Flame, Clock, Sparkles, ShieldCheck, Heart } from 'lucide-react';
-import { FoodAddOn, FoodItem } from '../types';
+import { FoodAddOn, FoodItem, ServingOption } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
@@ -19,14 +19,20 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, 
 
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedAddOns, setSelectedAddOns] = useState<FoodAddOn[]>([]);
+  const [selectedServingOption, setSelectedServingOption] = useState<ServingOption | null>(null);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
 
-  // Reset or preset add-ons when modal opens with a food item
+  // Reset or preset add-ons and serving options when modal opens with a food item
   useEffect(() => {
     if (food) {
       setQuantity(1);
       // Pre-select default add-ons if any
       setSelectedAddOns(food.addOns.filter((a) => a.defaultSelected));
+      if (food.servingOptions && food.servingOptions.length > 0) {
+        setSelectedServingOption(food.servingOptions[0]);
+      } else {
+        setSelectedServingOption(null);
+      }
     }
   }, [food]);
 
@@ -43,13 +49,22 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, 
     });
   };
 
+  const basePrice = selectedServingOption ? selectedServingOption.price : food.price;
   const addOnsTotal = selectedAddOns.reduce((acc, curr) => acc + curr.price, 0);
-  const singleItemPrice = food.price + addOnsTotal;
+  const singleItemPrice = basePrice + addOnsTotal;
   const totalPrice = singleItemPrice * quantity;
 
   const handlePreBook = () => {
+    const customizedFood: FoodItem = selectedServingOption
+      ? {
+          ...food,
+          name: `${food.name} (${selectedServingOption.name})`,
+          price: selectedServingOption.price,
+        }
+      : food;
+
     setDraftFromFood(
-      food,
+      customizedFood,
       quantity,
       selectedAddOns,
       user
@@ -194,6 +209,53 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, 
                       {ing}
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* SERVING STYLE OPTION (ROLL VS PLATE) */}
+            {food.servingOptions && food.servingOptions.length > 1 && (
+              <div className="rounded-2xl bg-neutral-950/80 border border-amber-500/30 p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Flame className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    Select Serving Style (Roll or Plate)
+                  </h4>
+                  <span className="text-xs font-semibold text-amber-400">Required</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {food.servingOptions.map((option) => {
+                    const isSelected = selectedServingOption?.id === option.id;
+                    return (
+                      <div
+                        key={option.id}
+                        onClick={() => setSelectedServingOption(option)}
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-gradient-to-b from-amber-950/60 to-red-950/40 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)] ring-1 ring-amber-400'
+                            : 'bg-neutral-900/60 border-neutral-800 text-neutral-300 hover:border-amber-500/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+                            <span>{option.id === 'roll' ? '🌯' : '🍽️'}</span>
+                            <span>{option.name}</span>
+                          </span>
+                          <div
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-amber-400 bg-amber-500' : 'border-neutral-600 bg-neutral-800'
+                            }`}
+                          >
+                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-amber-300 font-['Cinzel']">
+                          ₹{option.price}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
