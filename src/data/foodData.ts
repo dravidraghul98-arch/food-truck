@@ -12,7 +12,7 @@ export const foodItems: FoodItem[] = [
     id: 'classic-shawarma',
     name: 'Chicken Shawarma',
     category: 'Shawarmas',
-    price: 120,
+    price: 70,
     description: 'Traditional Lebanese slow-roasted shredded chicken with authentic garlic toum, french fries and tangy pickled veggies.',
     image: 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=800&q=80',
     available: true,
@@ -24,8 +24,8 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Marinated Rotisserie Chicken', 'Signature Garlic Toum', 'Crispy Fries', 'Tahini Glaze', 'Pickles', 'Soft Pita/Rumali'],
     calories: '380 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 120 },
-      { id: 'plate', name: 'Shawarma Plate', price: 130 },
+      { id: 'roll', name: 'Rumali Roll', price: 70 },
+      { id: 'plate', name: 'Shawarma Plate', price: 120 },
     ],
     addOns: [
       { id: 'extra-cheese', name: 'Extra Cheese', price: 20 },
@@ -38,7 +38,7 @@ export const foodItems: FoodItem[] = [
     id: 'peri-peri-shawarma',
     name: 'Peri Peri Shawarma',
     category: 'Shawarmas',
-    price: 120,
+    price: 90,
     description: 'Zesty African bird’s eye peri-peri seasoned chicken paired with creamy herb garlic sauce and crunchy peppers.',
     image: 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=800&q=80',
     available: true,
@@ -50,7 +50,7 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Peri Peri Spiced Chicken', 'Creamy Herb Mayo', 'Bell Peppers', 'Pickled Gherkins', 'Warm Flatbread'],
     calories: '410 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 120 },
+      { id: 'roll', name: 'Rumali Roll', price: 90 },
       { id: 'plate', name: 'Shawarma Plate', price: 130 },
     ],
     addOns: [
@@ -64,7 +64,7 @@ export const foodItems: FoodItem[] = [
     id: 'schezwan-shawarma',
     name: 'Schezwan Shawarma',
     category: 'Shawarmas',
-    price: 120,
+    price: 90,
     description: 'Spicy chicken shawarma with Schezwan sauce, fresh vegetables and special garlic mayonnaise wrapped in soft rumali roti.',
     image: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=800&q=80',
     available: true,
@@ -76,7 +76,7 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Grilled Chicken Breast', 'Fiery Schezwan Glaze', 'Garlic Toum Mayo', 'Pickled Cucumber', 'Crisp Iceberg Lettuce', 'Fresh Rumali Roti'],
     calories: '420 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 120 },
+      { id: 'roll', name: 'Rumali Roll', price: 90 },
       { id: 'plate', name: 'Shawarma Plate', price: 130 },
     ],
     addOns: [
@@ -90,7 +90,7 @@ export const foodItems: FoodItem[] = [
     id: 'mexican-shawarma',
     name: 'Mexican Shawarma',
     category: 'Shawarmas',
-    price: 120,
+    price: 90,
     description: 'Fusion style wrap with Mexican salsa, jalapenos, crunchy tortilla crumbs, chipotle cream, and juicy grilled chicken.',
     image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80',
     available: true,
@@ -102,7 +102,7 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Chipotle Chicken', 'Mexican Salsa', 'Sliced Jalapenos', 'Tortilla Chips Crunch', 'Cheese Sauce'],
     calories: '460 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 120 },
+      { id: 'roll', name: 'Rumali Roll', price: 90 },
       { id: 'plate', name: 'Shawarma Plate', price: 130 },
     ],
     addOns: [
@@ -116,7 +116,7 @@ export const foodItems: FoodItem[] = [
     id: 'bbq-shawarma',
     name: 'BBQ Shawarma',
     category: 'Shawarmas',
-    price: 120,
+    price: 90,
     description: 'Smoky sweet hickory barbecue glazed chicken with caramelized onions, crunchy cabbage, and melted cheese.',
     image: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=800&q=80',
     available: true,
@@ -128,7 +128,7 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Smoked BBQ Chicken', 'Hickory BBQ Glaze', 'Caramelized Onions', 'Garlic Sauce', 'Crisp Greens'],
     calories: '440 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 120 },
+      { id: 'roll', name: 'Rumali Roll', price: 90 },
       { id: 'plate', name: 'Shawarma Plate', price: 130 },
     ],
     addOns: [
@@ -142,7 +142,7 @@ export const foodItems: FoodItem[] = [
     id: 'cheese-shawarma',
     name: 'Cheese Shawarma',
     category: 'Shawarmas',
-    price: 130,
+    price: 100,
     description: 'Double cheese indulgence packed with molten mozzarella, rich cheddar blend, and succulent spiced chicken strips.',
     image: '/images/cheese_shawarma.png',
     available: true,
@@ -154,7 +154,7 @@ export const foodItems: FoodItem[] = [
     ingredients: ['Spiced Chicken', 'Molten Mozzarella', 'Cheddar Sauce', 'Garlic Mayo', 'Crispy Onions'],
     calories: '490 kcal',
     servingOptions: [
-      { id: 'roll', name: 'Rumali Roll', price: 130 },
+      { id: 'roll', name: 'Rumali Roll', price: 100 },
       { id: 'plate', name: 'Cheese Shawarma Plate', price: 150 },
     ],
     addOns: [
@@ -166,20 +166,21 @@ export const foodItems: FoodItem[] = [
   },
   {
     id: 'full-meat-shawarma-plate',
-    name: 'Full Meat Shawarma Plate',
-    category: 'Plates',
-    price: 180,
-    description: 'The royal open platter: cut rumali rolls, double portion juicy chicken meat, creamy toum garlic paste, crunchy french fries and fresh pickles.',
+    name: 'Full Meat Shawarma',
+    category: 'Shawarmas',
+    price: 130,
+    description: 'The royal open platter / roll: cut rumali rolls, double portion juicy chicken meat, creamy toum garlic paste, crunchy french fries and fresh pickles.',
     image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
     available: true,
     type: 'non-veg',
-    badge: 'Bestseller Platter ⭐',
+    badge: 'Bestseller ⭐',
     spicyLevel: 1,
     prepTimeMinutes: 12,
     rating: 5.0,
     ingredients: ['200g Grilled Chicken', '2 Cut Rumali Rotis', 'Large Garlic Toum', 'Golden Fries', 'Beetroot & Cucumber Pickles'],
     calories: '580 kcal',
     servingOptions: [
+      { id: 'roll', name: 'Full Meat Roll', price: 130 },
       { id: 'plate', name: 'Full Meat Platter', price: 180 },
     ],
     addOns: [
