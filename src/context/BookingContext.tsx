@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Booking, BookingStatus, FoodAddOn, FoodItem, OrderType } from '../types';
+import { Booking, BookingStatus, FoodAddOn, FoodItem, OrderType, PreBookItem } from '../types';
 import {
   supabase,
   fetchSupabaseBookings,
@@ -13,6 +13,7 @@ interface PreBookDraft {
   foodItem: FoodItem;
   quantity: number;
   selectedAddOns: FoodAddOn[];
+  items?: PreBookItem[];
   orderType: OrderType;
   customerName: string;
   customerPhone: string;
@@ -394,15 +395,22 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       specialInstructions: '',
     };
 
+    let totalAmount = 0;
+    if (draft.items && draft.items.length > 0) {
+      totalAmount = draft.items.reduce((sum, item) => {
+        const addOnsPrice = item.selectedAddOns.reduce((aSum, addOn) => aSum + addOn.price, 0);
+        return sum + (item.foodItem.price + addOnsPrice) * item.quantity;
+      }, 0);
+    } else {
+      const itemBasePrice = draft.foodItem.price;
+      const addOnsPricePerItem = draft.selectedAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
+      const pricePerUnit = itemBasePrice + addOnsPricePerItem;
+      const quantity = draft.quantity;
+      totalAmount = pricePerUnit * quantity;
+    }
+
     const itemBasePrice = draft.foodItem.price;
     const addOnsPricePerItem = draft.selectedAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
-    const pricePerUnit = itemBasePrice + addOnsPricePerItem;
-    const quantity = draft.quantity;
-    const totals = {
-      itemBasePrice,
-      addOnsPricePerItem,
-      totalAmount: pricePerUnit * quantity,
-    };
 
     const randomNum = Math.floor(10000 + Math.random() * 90000);
     const newId = `AD-2026-${randomNum}`;
@@ -419,9 +427,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       foodItem: draft.foodItem,
       quantity: draft.quantity,
       selectedAddOns: draft.selectedAddOns,
-      itemBasePrice: totals.itemBasePrice,
-      addOnsTotal: totals.addOnsPricePerItem,
-      totalAmount: totals.totalAmount,
+      items: draft.items || [{ foodItem: draft.foodItem, quantity: draft.quantity, selectedAddOns: draft.selectedAddOns }],
+      itemBasePrice,
+      addOnsTotal: addOnsPricePerItem,
+      totalAmount,
       pickupDate: draft.pickupDate,
       pickupTime: draft.pickupTime,
       specialInstructions: draft.specialInstructions,

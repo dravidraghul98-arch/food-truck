@@ -333,11 +333,56 @@ if (razorpayKeyId && razorpayKeySecret) {
   });
 }
 
+// Diagnostic Endpoint: Check Razorpay Key Status
+app.get('/api/razorpay/check-key', async (req, res) => {
+  if (!razorpayKeyId || !razorpayKeySecret) {
+    return res.json({
+      configured: false,
+      valid: false,
+      message: 'Razorpay keys (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are missing in environment variables (.env).',
+    });
+  }
+
+  if (!razorpay) {
+    return res.json({
+      configured: false,
+      valid: false,
+      message: 'Razorpay SDK failed to initialize.',
+    });
+  }
+
+  try {
+    // Attempt a lightweight test order creation to verify credentials
+    const testOrder = await razorpay.orders.create({ amount: 100, currency: 'INR', receipt: 'key_check' });
+    return res.json({
+      configured: true,
+      valid: true,
+      key_id: razorpayKeyId,
+      message: 'Razorpay test credentials are valid and active.',
+      test_order_id: testOrder.id,
+    });
+  } catch (err) {
+    const isAuthError = err && (err.statusCode === 401 || (err.error && err.error.code === 'BAD_REQUEST_ERROR'));
+    return res.status(200).json({
+      configured: true,
+      valid: false,
+      key_id: razorpayKeyId,
+      error_code: isAuthError ? 'INVALID_RAZORPAY_KEY' : 'RAZORPAY_ERROR',
+      message: isAuthError
+        ? 'Razorpay API Key ID or Secret in .env is invalid/expired. Please update RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env with valid credentials from dashboard.razorpay.com.'
+        : (err.message || 'Error communicating with Razorpay servers.'),
+    });
+  }
+});
+
 // Create Razorpay Order Endpoint
 app.post('/api/create-order', bookingLimiter, async (req, res) => {
   try {
     if (!razorpay) {
-      return res.status(500).json({ error: 'Payment gateway configuration is missing on server.' });
+      return res.status(500).json({
+        error: 'Payment gateway configuration is missing on server.',
+        code: 'MISSING_RAZORPAY_CONFIG',
+      });
     }
 
     const { amount, currency = 'INR', receipt } = req.body;
@@ -362,6 +407,14 @@ app.post('/api/create-order', bookingLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('Razorpay Order Creation Error:', err);
+    const isAuthError = err && (err.statusCode === 401 || (err.error && err.error.code === 'BAD_REQUEST_ERROR'));
+    if (isAuthError) {
+      return res.status(401).json({
+        error: 'Razorpay API Key ID or Secret in .env is invalid or expired. Please update RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env with active credentials from dashboard.razorpay.com.',
+        code: 'INVALID_RAZORPAY_KEY',
+        key_id: razorpayKeyId,
+      });
+    }
     return res.status(500).json({ error: 'Payment gateway processing error.' });
   }
 });

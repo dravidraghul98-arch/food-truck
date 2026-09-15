@@ -38,6 +38,12 @@ export type BookingStatus = 'Confirmed' | 'Preparing' | 'Ready' | 'Completed' | 
 
 export type OrderType = 'Pickup' | 'Home Delivery';
 
+export interface PreBookItem {
+  foodItem: FoodItem;
+  quantity: number;
+  selectedAddOns: FoodAddOn[];
+}
+
 export interface Booking {
   id: string;
   userId: string;
@@ -50,6 +56,7 @@ export interface Booking {
   foodItem: FoodItem;
   quantity: number;
   selectedAddOns: FoodAddOn[];
+  items?: PreBookItem[];
   itemBasePrice: number;
   addOnsTotal: number;
   totalAmount: number;

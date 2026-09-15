@@ -580,30 +580,52 @@ export const OwnerDashboardPage: React.FC = () => {
 
                     {/* Food Snapshot */}
                     <div className="p-3 rounded-xl bg-black/60 border border-neutral-800 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <img
                           src={booking.foodItem.image}
                           alt={booking.foodItem.name}
                           className="w-12 h-12 rounded-lg object-cover border border-amber-500/30 shrink-0"
                         />
                         <div>
-                          <div className="font-bold text-white text-sm">
-                            {booking.foodItem.name} (x{booking.quantity})
-                          </div>
-                          {booking.selectedAddOns.length > 0 && (
-                            <div className="text-[11px] text-amber-300">
-                              + {booking.selectedAddOns.map((a) => a.name).join(', ')}
+                          {booking.items && booking.items.length > 1 ? (
+                            <div>
+                              <div className="font-bold text-amber-300 text-xs uppercase tracking-wider mb-1">
+                                Variety Order ({booking.items.length} varieties, {booking.items.reduce((s, i) => s + i.quantity, 0)} items):
+                              </div>
+                              <div className="space-y-1">
+                                {booking.items.map((it, idx) => (
+                                  <div key={idx} className="text-white text-xs font-medium">
+                                    • <strong className="text-amber-200">{it.foodItem.name}</strong> (x{it.quantity})
+                                    {it.selectedAddOns && it.selectedAddOns.length > 0 && (
+                                      <span className="text-amber-400 text-[10px] ml-1">
+                                        [+{it.selectedAddOns.map((a) => a.name).join(', ')}]
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
+                          ) : (
+                            <>
+                              <div className="font-bold text-white text-sm">
+                                {booking.foodItem.name} (x{booking.quantity})
+                              </div>
+                              {booking.selectedAddOns.length > 0 && (
+                                <div className="text-[11px] text-amber-300">
+                                  + {booking.selectedAddOns.map((a) => a.name).join(', ')}
+                                </div>
+                              )}
+                            </>
                           )}
                           {booking.specialInstructions && (
-                            <div className="text-[10px] text-neutral-400 italic">
+                            <div className="text-[10px] text-neutral-400 italic mt-0.5">
                               Note: {booking.specialInstructions}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="text-right font-['Cinzel'] font-black text-amber-300 text-sm">
+                      <div className="text-right font-['Cinzel'] font-black text-amber-300 text-sm shrink-0">
                         ₹{booking.totalAmount}
                       </div>
                     </div>

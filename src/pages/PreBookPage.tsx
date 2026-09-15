@@ -26,13 +26,14 @@ import {
   MapPin,
   Truck,
   Store,
+  Trash2,
 } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { sanitizeInput, validatePhone } from '../lib/security';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
 import { foodItems } from '../data/foodData';
-import { FoodAddOn, FoodItem, Booking, OrderType } from '../types';
+import { FoodAddOn, FoodItem, Booking, OrderType, PreBookItem } from '../types';
 
 export const PreBookPage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,10 +59,21 @@ export const PreBookPage: React.FC = () => {
   const [pickupTime, setPickupTime] = useState(activeDraft?.pickupTime || '06:30 PM');
   const [specialInstructions, setSpecialInstructions] = useState(activeDraft?.specialInstructions || '');
   
-  // Customization state
-  const [selectedFood, setSelectedFood] = useState<FoodItem>(activeDraft?.foodItem || foodItems[0]);
-  const [quantity, setQuantity] = useState<number>(activeDraft?.quantity || 1);
-  const [selectedAddOns, setSelectedAddOns] = useState<FoodAddOn[]>(activeDraft?.selectedAddOns || []);
+  // Multi-item Order State
+  const [orderItems, setOrderItems] = useState<PreBookItem[]>(() => {
+    if (activeDraft?.items && activeDraft.items.length > 0) {
+      return activeDraft.items;
+    }
+    const initFood = activeDraft?.foodItem || foodItems[0];
+    const initQty = activeDraft?.quantity || 1;
+    const initAddOns = activeDraft?.selectedAddOns || [];
+    return [{ foodItem: initFood, quantity: initQty, selectedAddOns: initAddOns }];
+  });
+
+  // Backward compatibility state helpers
+  const selectedFood = orderItems[0]?.foodItem || foodItems[0];
+  const quantity = orderItems[0]?.quantity || 1;
+  const selectedAddOns = orderItems[0]?.selectedAddOns || [];
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'UPI (Google Pay / PhonePe)' | 'Credit / Debit Card' | 'Net Banking' | 'Pay on Pickup'>('UPI (Google Pay / PhonePe)');
@@ -73,9 +85,11 @@ export const PreBookPage: React.FC = () => {
   // Sync draft if already present
   useEffect(() => {
     if (activeDraft) {
-      setSelectedFood(activeDraft.foodItem);
-      setQuantity(activeDraft.quantity);
-      setSelectedAddOns(activeDraft.selectedAddOns);
+      if (activeDraft.items && activeDraft.items.length > 0) {
+        setOrderItems(activeDraft.items);
+      } else {
+        setOrderItems([{ foodItem: activeDraft.foodItem, quantity: activeDraft.quantity, selectedAddOns: activeDraft.selectedAddOns }]);
+      }
       if (activeDraft.orderType) setOrderType(activeDraft.orderType);
       if (activeDraft.customerName) setCustomerName(activeDraft.customerName);
       if (activeDraft.customerPhone) setCustomerPhone(activeDraft.customerPhone);
@@ -90,6 +104,76 @@ export const PreBookPage: React.FC = () => {
       setDeliveryPhone(user.phone);
     }
   }, [activeDraft, user]);
+
+  // Food Item Optgroup Categories
+  const foodGroups = [
+    { label: '🔥 Shawarmas', items: foodItems.filter((f) => f.category === 'Shawarmas') },
+    { label: '🍚 Rice Items', items: foodItems.filter((f) => f.category === 'Rice Items') },
+    { label: '🥗 Salad & Platters', items: foodItems.filter((f) => f.category === 'Plates') },
+    { label: '🥢 Noodles', items: foodItems.filter((f) => f.category === 'Noodles') },
+    { label: '🌯 Starters & Side Rolls', items: foodItems.filter((f) => f.category === 'Starters') },
+    { label: '🍹 Refreshing Drinks', items: foodItems.filter((f) => f.category === 'Drinks') },
+    { label: '🎉 Feast Combos', items: foodItems.filter((f) => f.category === 'Combos') },
+  ];
+
+  // Quick Action: Add ALL 8 Shawarmas to order
+  const handleAddAllShawarmas = () => {
+    const shawarmas = foodItems.filter((f) => f.category === 'Shawarmas');
+    setOrderItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.foodItem.id));
+      const missing = shawarmas
+        .filter((s) => !existingIds.has(s.id))
+        .map((s) => ({ foodItem: s, quantity: 1, selectedAddOns: [] }));
+      return [...prev, ...missing];
+    });
+  };
+
+  const handleAddItemFromDropdown = (foodId: string) => {
+    const food = foodItems.find((f) => f.id === foodId);
+    if (!food) return;
+    setOrderItems((prev) => {
+      const idx = prev.findIndex((i) => i.foodItem.id === food.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
+        return copy;
+      }
+      return [...prev, { foodItem: food, quantity: 1, selectedAddOns: [] }];
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setOrderItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  };
+
+  const handleUpdateItemQty = (index: number, newQty: number) => {
+    setOrderItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], quantity: Math.max(1, newQty) };
+      return copy;
+    });
+  };
+
+  const handleToggleItemAddOn = (index: number, addOn: FoodAddOn) => {
+    setOrderItems((prev) => {
+      const copy = [...prev];
+      const currentAddOns = copy[index].selectedAddOns;
+      const exists = currentAddOns.some((a) => a.id === addOn.id);
+      const nextAddOns = exists
+        ? currentAddOns.filter((a) => a.id !== addOn.id)
+        : [...currentAddOns, addOn];
+      copy[index] = { ...copy[index], selectedAddOns: nextAddOns };
+      return copy;
+    });
+  };
+
+  // Total order calculations across all items
+  const totalAmount = orderItems.reduce((acc, item) => {
+    const itemAddOnsPrice = item.selectedAddOns.reduce((sum, a) => sum + a.price, 0);
+    return acc + (item.foodItem.price + itemAddOnsPrice) * item.quantity;
+  }, 0);
+
+  const totalItemCount = orderItems.reduce((sum, i) => sum + i.quantity, 0);
 
   // Valid Pickup Time Slots within Operating Hours: 4:00 PM – 11:00 PM
   const timeSlots = [
@@ -112,27 +196,6 @@ export const PreBookPage: React.FC = () => {
     }
     return dates;
   };
-
-  const handleFoodChange = (food: FoodItem) => {
-    setSelectedFood(food);
-    setSelectedAddOns([]);
-  };
-
-  const toggleAddOn = (addOn: FoodAddOn) => {
-    setSelectedAddOns((prev) => {
-      const exists = prev.some((a) => a.id === addOn.id);
-      if (exists) {
-        return prev.filter((a) => a.id !== addOn.id);
-      } else {
-        return [...prev, addOn];
-      }
-    });
-  };
-
-  // Pricing calculations
-  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
-  const singleItemTotal = selectedFood.price + addOnsTotal;
-  const totalAmount = singleItemTotal * quantity;
 
   // Step 1: Proceed to Summary
   const handleProceedToSummary = (e: React.FormEvent) => {
@@ -174,9 +237,10 @@ export const PreBookPage: React.FC = () => {
 
     // Save to context draft
     updateDraft({
-      foodItem: selectedFood,
-      quantity,
-      selectedAddOns,
+      foodItem: orderItems[0]?.foodItem || foodItems[0],
+      quantity: orderItems[0]?.quantity || 1,
+      selectedAddOns: orderItems[0]?.selectedAddOns || [],
+      items: orderItems,
       orderType,
       customerName,
       customerPhone,
@@ -255,7 +319,7 @@ export const PreBookPage: React.FC = () => {
       const amountInPaise = Math.round(totalAmount * 100);
 
       // 1. Try backend order creation if available
-      let orderData: { order_id?: string; key_id?: string; amount?: number; currency?: string } = {};
+      let orderData: { order_id?: string; key_id?: string; amount?: number; currency?: string; error?: string; code?: string } = {};
       let backendSuccess = false;
       try {
         const res = await fetch('/api/create-order', {
@@ -268,20 +332,22 @@ export const PreBookPage: React.FC = () => {
           }),
         });
 
-        if (res.ok) {
-          const contentType = res.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            orderData = await res.json();
-            if (orderData.order_id) {
-              backendSuccess = true;
-            }
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (res.ok && data.order_id) {
+            orderData = data;
+            backendSuccess = true;
+          } else if (res.status === 401 || data.code === 'INVALID_RAZORPAY_KEY') {
+            console.warn('Razorpay Key Error from Server:', data.error);
+            setFormError(data.error || 'Razorpay test API key in .env is invalid or expired.');
           }
         }
       } catch {
         // Backend API not reachable on static host
       }
 
-      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_Ta0JCYDiCuFWmi';
+      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_Ta0nDaaXSD57f4';
       const orderId = orderData.order_id;
 
       // 2. Trigger Razorpay Checkout SDK if loaded
@@ -332,6 +398,7 @@ export const PreBookPage: React.FC = () => {
           const rzp = new (window as any).Razorpay(options);
           rzp.on('payment.failed', async function (response: any) {
             console.warn('Razorpay checkout notice:', response?.error?.description || 'Fallback active');
+            // If payment modal failed due to invalid key, complete via fallback
             await completeBookingSuccess();
           });
           rzp.open();
@@ -454,117 +521,171 @@ export const PreBookPage: React.FC = () => {
 
             <form onSubmit={handleProceedToSummary} className="space-y-6">
               
-              {/* Selected Food Item Card */}
-              <div className="p-5 rounded-2xl bg-neutral-950/90 border-2 border-amber-500/40 shadow-xl space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                  <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
-                    <ChefHat className="w-4 h-4 text-amber-400" />
-                    Selected Food Item
-                  </h3>
-                  <span className="text-xs text-neutral-400">Pre-populated</span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <img
-                    src={selectedFood.image}
-                    alt={selectedFood.name}
-                    className="w-20 h-20 rounded-xl object-cover border border-amber-500/30 shrink-0"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-['Cinzel'] font-bold text-lg text-white">
-                        {selectedFood.name}
-                      </h4>
-                      <span className="text-xs font-black text-amber-300 font-['Cinzel']">
-                        ₹{selectedFood.price}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">
-                      {selectedFood.description}
+              {/* Selected Food Items & Multi-Item Pre-Book List */}
+              <div className="p-5 rounded-2xl bg-neutral-950/90 border-2 border-amber-500/40 shadow-xl space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-neutral-800 pb-3 gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                      <ChefHat className="w-4 h-4 text-amber-400" />
+                      Pre-Book Order Items ({totalItemCount} {totalItemCount === 1 ? 'Item' : 'Items'})
+                    </h3>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      Select any Shawarma, roll, platter or combo below to add to your order.
                     </p>
-
-                    {/* Change food dropdown if customer wants another item */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[11px] text-neutral-400">Change item:</span>
-                      <select
-                        value={selectedFood.id}
-                        onChange={(e) => {
-                          const found = foodItems.find((f) => f.id === e.target.value);
-                          if (found) handleFoodChange(found);
-                        }}
-                        className="text-xs py-1 px-2.5 rounded-lg bg-neutral-900 border border-neutral-700 text-amber-300 outline-none"
-                      >
-                        {foodItems.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.name} - ₹{f.price}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
+
+                  {/* Quick Action: Add ALL Shawarmas */}
+                  <button
+                    type="button"
+                    onClick={handleAddAllShawarmas}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400 text-amber-300 hover:bg-amber-500 hover:text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>➕ Add All Shawarmas (8 Flavors)</span>
+                  </button>
                 </div>
 
-                {/* Add-ons list for this item */}
-                {selectedFood.addOns.length > 0 && (
-                  <div className="pt-3 border-t border-neutral-800/80">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-300 mb-2">
-                      Select Add-Ons
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selectedFood.addOns.map((addOn) => {
-                        const isSelected = selectedAddOns.some((a) => a.id === addOn.id);
-                        return (
-                          <div
-                            key={addOn.id}
-                            onClick={() => toggleAddOn(addOn)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
-                              isSelected
-                                ? 'bg-amber-950/40 border-amber-400 text-white'
-                                : 'bg-neutral-900/60 border-neutral-800 text-neutral-300 hover:border-neutral-700'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-4 h-4 rounded flex items-center justify-center border ${
-                                  isSelected ? 'bg-amber-500 border-amber-500 text-black' : 'border-neutral-600'
-                                }`}
-                              >
-                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                              </div>
-                              <span>{addOn.name}</span>
-                            </div>
-                            <span className="font-bold text-amber-300">+₹{addOn.price}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {/* List of items in the order */}
+                <div className="space-y-4">
+                  {orderItems.map((item, index) => {
+                    const itemAddOnsTotal = item.selectedAddOns.reduce((sum, a) => sum + a.price, 0);
+                    const itemSubtotal = (item.foodItem.price + itemAddOnsTotal) * item.quantity;
 
-                {/* Quantity Control */}
-                <div className="pt-3 border-t border-neutral-800/80 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
-                    Item Quantity
-                  </span>
-                  <div className="flex items-center gap-3 bg-neutral-900 border border-amber-500/30 rounded-xl p-1">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      disabled={quantity <= 1}
-                      className="w-7 h-7 rounded-lg bg-neutral-800 text-white flex items-center justify-center disabled:opacity-40"
+                    return (
+                      <div
+                        key={`${item.foodItem.id}-${index}`}
+                        className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800 space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={item.foodItem.image}
+                              alt={item.foodItem.name}
+                              className="w-16 h-16 rounded-xl object-cover border border-amber-500/30 shrink-0"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-['Cinzel'] font-bold text-base text-white">
+                                  {item.foodItem.name}
+                                </h4>
+                                <span className="text-xs font-black text-amber-300 font-['Cinzel']">
+                                  ₹{item.foodItem.price}
+                                </span>
+                              </div>
+                              <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">
+                                {item.foodItem.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center gap-2 bg-neutral-950 border border-amber-500/30 rounded-xl p-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQty(index, item.quantity - 1)}
+                                disabled={item.quantity <= 1}
+                                className="w-6 h-6 rounded-lg bg-neutral-800 text-white flex items-center justify-center disabled:opacity-40"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-5 text-center font-bold text-xs text-amber-300">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQty(index, item.quantity + 1)}
+                                className="w-6 h-6 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Subtotal */}
+                            <span className="text-sm font-bold text-amber-300 font-mono">
+                              ₹{itemSubtotal}
+                            </span>
+
+                            {/* Remove item button */}
+                            {orderItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(index)}
+                                className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                                title="Remove item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Add-ons for this item */}
+                        {item.foodItem.addOns && item.foodItem.addOns.length > 0 && (
+                          <div className="pt-2.5 border-t border-neutral-800/60">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5 block">
+                              Add-Ons for {item.foodItem.name}
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              {item.foodItem.addOns.map((addOn) => {
+                                const isSelected = item.selectedAddOns.some((a) => a.id === addOn.id);
+                                return (
+                                  <div
+                                    key={addOn.id}
+                                    onClick={() => handleToggleItemAddOn(index, addOn)}
+                                    className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-xs transition-all ${
+                                      isSelected
+                                        ? 'bg-amber-950/40 border-amber-400 text-white'
+                                        : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                                          isSelected ? 'bg-amber-500 border-amber-500 text-black' : 'border-neutral-600'
+                                        }`}
+                                      >
+                                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                      </div>
+                                      <span>{addOn.name}</span>
+                                    </div>
+                                    <span className="font-bold text-amber-300">+₹{addOn.price}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add Item Dropdown Menu grouped with optgroups */}
+                <div className="pt-3 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-xs text-neutral-400 whitespace-nowrap font-medium">Add more items:</span>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleAddItemFromDropdown(e.target.value);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="w-full sm:w-auto text-xs py-2 px-3 rounded-xl bg-neutral-900 border border-amber-500/40 text-amber-300 outline-none cursor-pointer focus:border-amber-400"
                     >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-6 text-center font-bold text-sm text-amber-300">
-                      {quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((q) => Math.min(20, q + 1))}
-                      className="w-7 h-7 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                      <option value="">-- Select Food Item to Add --</option>
+                      {foodGroups.map((group) => (
+                        <optgroup key={group.label} label={group.label} className="bg-neutral-950 text-amber-400 font-bold">
+                          {group.items.map((f) => (
+                            <option key={f.id} value={f.id} className="bg-neutral-900 text-white font-normal">
+                              {f.name} - ₹{f.price}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -790,8 +911,7 @@ export const PreBookPage: React.FC = () => {
               <div className="p-5 rounded-2xl bg-gradient-to-r from-red-950/70 via-neutral-900 to-amber-950/70 border-2 border-amber-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                   <div className="text-xs text-neutral-300">
-                    Base: ₹{selectedFood.price} + Add-ons: ₹{addOnsTotal} = ₹{singleItemTotal}
-                    {quantity > 1 ? ` × ${quantity}` : ''}
+                    {orderItems.length} {orderItems.length === 1 ? 'variety item' : 'variety items'} ({totalItemCount} qty total)
                   </div>
                   <div className="text-2xl sm:text-3xl font-black font-['Cinzel'] text-amber-300">
                     Total: ₹{totalAmount}
@@ -880,42 +1000,50 @@ export const PreBookPage: React.FC = () => {
               {/* Order Items Breakdown */}
               <div className="space-y-3">
                 <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-medium">
-                  Order Breakdown
+                  Order Breakdown ({totalItemCount} {totalItemCount === 1 ? 'item' : 'items'})
                 </span>
 
-                <div className="p-4 rounded-2xl bg-neutral-950/80 border border-neutral-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={selectedFood.image}
-                        alt={selectedFood.name}
-                        className="w-12 h-12 rounded-lg object-cover border border-amber-500/30"
-                      />
-                      <div>
-                        <h4 className="font-bold text-sm text-white">{selectedFood.name}</h4>
-                        <span className="text-xs text-neutral-400">Qty: {quantity}</span>
-                      </div>
-                    </div>
-                    <span className="font-mono font-bold text-sm text-white">
-                      ₹{selectedFood.price * quantity}
-                    </span>
-                  </div>
-
-                  {/* Add-ons */}
-                  {selectedAddOns.length > 0 && (
-                    <div className="pt-2 border-t border-neutral-900 space-y-1 pl-4">
-                      {selectedAddOns.map((addOn) => (
-                        <div key={addOn.id} className="flex justify-between text-xs text-neutral-300">
-                          <span>+ {addOn.name} (x{quantity})</span>
-                          <span className="text-amber-300 font-mono">+₹{addOn.price * quantity}</span>
+                <div className="p-4 rounded-2xl bg-neutral-950/80 border border-neutral-800 space-y-4">
+                  {orderItems.map((item, idx) => {
+                    const itemAddOnsPrice = item.selectedAddOns.reduce((s, a) => s + a.price, 0);
+                    const itemTotal = (item.foodItem.price + itemAddOnsPrice) * item.quantity;
+                    return (
+                      <div key={idx} className={`${idx > 0 ? 'pt-3 border-t border-neutral-800/80' : ''} space-y-2`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={item.foodItem.image}
+                              alt={item.foodItem.name}
+                              className="w-12 h-12 rounded-lg object-cover border border-amber-500/30 shrink-0"
+                            />
+                            <div>
+                              <h4 className="font-bold text-sm text-white">{item.foodItem.name}</h4>
+                              <span className="text-xs text-neutral-400">Qty: {item.quantity} × ₹{item.foodItem.price}</span>
+                            </div>
+                          </div>
+                          <span className="font-mono font-bold text-sm text-white">
+                            ₹{itemTotal}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+
+                        {/* Add-ons */}
+                        {item.selectedAddOns.length > 0 && (
+                          <div className="pl-4 space-y-1">
+                            {item.selectedAddOns.map((addOn) => (
+                              <div key={addOn.id} className="flex justify-between text-xs text-neutral-400">
+                                <span>+ {addOn.name} (x{item.quantity})</span>
+                                <span className="text-amber-300 font-mono">+₹{addOn.price * item.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {/* Special instructions */}
                   {specialInstructions && (
-                    <div className="pt-2 border-t border-neutral-900 text-xs text-neutral-400 italic">
+                    <div className="pt-2 border-t border-neutral-800 text-xs text-neutral-400 italic">
                       Note: "{specialInstructions}"
                     </div>
                   )}
@@ -924,21 +1052,11 @@ export const PreBookPage: React.FC = () => {
 
               {/* Cost Math */}
               <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-2 text-sm">
-                <div className="flex justify-between text-neutral-300 text-xs">
-                  <span>Food Item Base Price</span>
-                  <span>₹{selectedFood.price * quantity}</span>
-                </div>
-                {addOnsTotal > 0 && (
-                  <div className="flex justify-between text-neutral-300 text-xs">
-                    <span>Add-ons Total</span>
-                    <span>₹{addOnsTotal * quantity}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-emerald-400 text-xs font-semibold">
                   <span>Pre-Booking Express Perk Fee</span>
                   <span>FREE (₹0)</span>
                 </div>
-                <div className="pt-2 border-t border-amber-500/30 flex justify-between text-lg font-['Cinzel'] font-black text-amber-300">
+                <div className="pt-2 border-t border-amber-500/30 flex justify-between text-lg font-[#Cinzel] font-black text-amber-300">
                   <span>TOTAL AMOUNT PAYABLE</span>
                   <span>₹{totalAmount}</span>
                 </div>
@@ -990,6 +1108,19 @@ export const PreBookPage: React.FC = () => {
 
             <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-[#1a0f0f] via-[#140b0b] to-[#0d0707] border-2 border-amber-500/40 shadow-2xl space-y-6">
               
+              {formError && (
+                <div className="p-4 rounded-2xl bg-amber-950/80 border-2 border-amber-500/80 text-amber-200 text-xs flex items-start gap-3 shadow-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-300 block text-sm">Razorpay Credentials Notice</span>
+                    <p>{formError}</p>
+                    <span className="text-[11px] text-amber-400/90 font-medium block pt-1">
+                      💡 Don't worry — clicking "Pay & Confirm Booking" below will process your pre-booking order smoothly using the fallback system!
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Production Security Notice */}
               <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-center gap-3 text-xs text-amber-200">
                 <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />

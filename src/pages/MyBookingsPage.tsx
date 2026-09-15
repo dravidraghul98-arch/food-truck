@@ -168,19 +168,39 @@ export const MyBookingsPage: React.FC = () => {
                       className="w-16 h-16 rounded-xl object-cover border border-amber-500/30 shrink-0"
                     />
                     <div>
-                      <h3 className="font-['Cinzel'] font-bold text-base text-white">
-                        {booking.foodItem.name}
-                      </h3>
-                      <div className="text-xs text-neutral-300">
-                        Quantity: <span className="font-bold text-amber-300">{booking.quantity}</span>
-                      </div>
-                      {booking.selectedAddOns.length > 0 && (
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
-                          Add-ons: {booking.selectedAddOns.map((a) => a.name).join(', ')}
+                      {booking.items && booking.items.length > 1 ? (
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
+                            Multi-Item Variety Order ({booking.items.reduce((acc, i) => acc + i.quantity, 0)} items)
+                          </span>
+                          <div className="space-y-1">
+                            {booking.items.map((item, idx) => (
+                              <div key={idx} className="text-xs text-white flex items-center gap-2">
+                                <span className="font-bold text-amber-300 font-['Cinzel']">
+                                  • {item.foodItem.name} (x{item.quantity})
+                                </span>
+                                <span className="text-neutral-400">₹{item.foodItem.price * item.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          <h3 className="font-['Cinzel'] font-bold text-base text-white">
+                            {booking.foodItem.name}
+                          </h3>
+                          <div className="text-xs text-neutral-300">
+                            Quantity: <span className="font-bold text-amber-300">{booking.quantity}</span>
+                          </div>
+                          {booking.selectedAddOns.length > 0 && (
+                            <div className="text-[11px] text-neutral-400 mt-0.5">
+                              Add-ons: {booking.selectedAddOns.map((a) => a.name).join(', ')}
+                            </div>
+                          )}
+                        </>
                       )}
                       {booking.specialInstructions && (
-                        <div className="text-[10px] text-neutral-400 italic mt-0.5">
+                        <div className="text-[10px] text-neutral-400 italic mt-1">
                           "{booking.specialInstructions}"
                         </div>
                       )}
