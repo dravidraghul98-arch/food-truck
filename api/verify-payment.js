@@ -5,6 +5,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // Safely parse request body if stringified
+  let bodyData = req.body;
+  if (typeof bodyData === 'string') {
+    try {
+      bodyData = JSON.parse(bodyData);
+    } catch (e) {
+      bodyData = {};
+    }
+  }
+
   const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'LyBdSFi6iTIuwCtQx1JYOp0b').trim().replace(/^["']|["']$/g, '');
 
   if (!razorpayKeySecret) {
@@ -12,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = bodyData || {};
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ error: 'Missing required payment verification fields.' });

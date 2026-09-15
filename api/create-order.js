@@ -5,6 +5,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // Safely parse request body if stringified
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+
   const razorpayKeyId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX').trim().replace(/^["']|["']$/g, '');
   const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'LyBdSFi6iTIuwCtQx1JYOp0b').trim().replace(/^["']|["']$/g, '');
 
@@ -18,7 +28,7 @@ export default async function handler(req, res) {
       key_secret: razorpayKeySecret,
     });
 
-    const { amount, currency = 'INR', receipt } = req.body || {};
+    const { amount, currency = 'INR', receipt } = body || {};
 
     const amountInPaise = Math.round(Number(amount));
     if (isNaN(amountInPaise) || amountInPaise < 100) {

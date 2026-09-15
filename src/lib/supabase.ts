@@ -115,12 +115,12 @@ export async function createSupabaseBooking(booking: Booking): Promise<boolean> 
     }]);
 
     if (error) {
-      console.error('Error inserting booking into Supabase:', error);
+      console.warn('Supabase insert notice (local storage active):', error.message || error);
       return false;
     }
     return true;
   } catch (err) {
-    console.error('Failed to save booking to Supabase:', err);
+    console.warn('Failed to save booking to Supabase (using fallback):', err);
     return false;
   }
 }
