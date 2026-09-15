@@ -346,6 +346,13 @@ export const PreBookPage: React.FC = () => {
 
       const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX';
 
+      // Check if key is placeholder or expired
+      if (keyId === 'rzp_test_TcDG0CSc6a3fcX' || !keyId) {
+        setIsProcessingPayment(false);
+        setFormError('Razorpay online payments require active API credentials. Please set RAZORPAY_KEY_ID in Vercel settings or select "Pay at Food Truck".');
+        return;
+      }
+
       // Function to initialize and open Razorpay SDK
       const launchRazorpayModal = async () => {
         if (typeof window === 'undefined' || !(window as any).Razorpay) {
