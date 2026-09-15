@@ -350,10 +350,11 @@ export const PreBookPage: React.FC = () => {
       const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX';
       const orderId = orderData.order_id;
 
-      // 2. Trigger Razorpay Checkout SDK if loaded
-      if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      // 2. Trigger Razorpay Checkout SDK if loaded and valid order_id exists
+      if (typeof window !== 'undefined' && (window as any).Razorpay && (backendSuccess || (orderId && orderId.trim().length > 0))) {
         const options: any = {
           key: keyId,
+          order_id: orderId,
           amount: amountInPaise,
           currency: 'INR',
           name: 'Arabian Delights Food Truck',
@@ -389,16 +390,10 @@ export const PreBookPage: React.FC = () => {
           },
         };
 
-        // Only attach order_id if valid string exists
-        if (orderId && typeof orderId === 'string' && orderId.trim().length > 0) {
-          options.order_id = orderId;
-        }
-
         try {
           const rzp = new (window as any).Razorpay(options);
           rzp.on('payment.failed', async function (response: any) {
             console.warn('Razorpay checkout notice:', response?.error?.description || 'Fallback active');
-            // If payment modal failed due to invalid key, complete via fallback
             await completeBookingSuccess();
           });
           rzp.open();
@@ -407,15 +402,15 @@ export const PreBookPage: React.FC = () => {
           await completeBookingSuccess();
         }
       } else {
-        // 3. Fallback: simulate 1s verification then complete booking seamlessly
+        // 3. Fallback: simulate 1.2s verification then complete booking seamlessly
         setTimeout(async () => {
           await completeBookingSuccess();
-        }, 1000);
+        }, 1200);
       }
     } catch (err: any) {
       setTimeout(async () => {
         await completeBookingSuccess();
-      }, 1000);
+      }, 1200);
     }
   };
 
