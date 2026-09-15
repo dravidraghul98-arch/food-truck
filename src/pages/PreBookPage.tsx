@@ -347,7 +347,7 @@ export const PreBookPage: React.FC = () => {
         // Backend API not reachable on static host
       }
 
-      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_Ta0nDaaXSD57f4';
+      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX';
       const orderId = orderData.order_id;
 
       // 2. Trigger Razorpay Checkout SDK if loaded
