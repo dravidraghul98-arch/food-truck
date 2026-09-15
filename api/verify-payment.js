@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'LyBdSFi6iTIuwCtQx1JYOp0b').trim().replace(/^["']|["']$/g, '');
+  const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'c558sM3K9ecNM5WJfsgqUL8F').trim().replace(/^["']|["']$/g, '');
 
   if (!razorpayKeySecret) {
     return res.status(500).json({ error: 'Payment secret missing on server.' });

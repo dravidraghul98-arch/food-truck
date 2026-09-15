@@ -322,8 +322,8 @@ app.post('/api/bookings/calculate-price', (req, res) => {
 // 5. RAZORPAY INTEGRATION ENDPOINTS
 // ============================================================
 
-const razorpayKeyId = (process.env.RAZORPAY_KEY_ID || '').trim().replace(/^["']|["']$/g, '');
-const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim().replace(/^["']|["']$/g, '');
+const razorpayKeyId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcGGzLVv9bjvnB').trim().replace(/^["']|["']$/g, '');
+const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'c558sM3K9ecNM5WJfsgqUL8F').trim().replace(/^["']|["']$/g, '');
 
 let razorpay = null;
 if (razorpayKeyId && razorpayKeySecret) {

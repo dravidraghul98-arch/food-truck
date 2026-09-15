@@ -15,8 +15,8 @@ export default async function handler(req, res) {
     }
   }
 
-  const razorpayKeyId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX').trim().replace(/^["']|["']$/g, '');
-  const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'LyBdSFi6iTIuwCtQx1JYOp0b').trim().replace(/^["']|["']$/g, '');
+  const razorpayKeyId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcGGzLVv9bjvnB').trim().replace(/^["']|["']$/g, '');
+  const razorpayKeySecret = (process.env.RAZORPAY_KEY_SECRET || 'c558sM3K9ecNM5WJfsgqUL8F').trim().replace(/^["']|["']$/g, '');
 
   if (!razorpayKeyId || !razorpayKeySecret) {
     return res.status(500).json({ error: 'Razorpay configuration is missing on server.' });

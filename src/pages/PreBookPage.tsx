@@ -344,10 +344,10 @@ export const PreBookPage: React.FC = () => {
         console.warn('Backend API create-order call omitted or unreachable:', e);
       }
 
-      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcDG0CSc6a3fcX';
+      const keyId = orderData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TcGGzLVv9bjvnB';
 
-      // Check if key is placeholder or expired
-      if (keyId === 'rzp_test_TcDG0CSc6a3fcX' || !keyId) {
+      // Check if key is placeholder or missing
+      if (!keyId) {
         setIsProcessingPayment(false);
         setFormError('Razorpay online payments require active API credentials. Please set RAZORPAY_KEY_ID in Vercel settings or select "Pay at Food Truck".');
         return;
