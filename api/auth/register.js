@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const { name, email, phone, password } = body || {};
+  const { id, name, email, phone, password } = body || {};
 
   if (!email || !name) {
     return res.status(400).json({ error: 'Name and email are required for registration.' });
@@ -48,7 +48,18 @@ export default async function handler(req, res) {
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanName = String(name).trim();
   const cleanPhone = String(phone || '').trim();
-  const userId = `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  // Enforce valid UUID format for PostgreSQL UUID primary key column
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let userId = id && uuidRegex.test(id) ? id : null;
+  if (!userId) {
+    userId = typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? crypto.randomUUID() 
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        });
+  }
 
   let client;
   try {
