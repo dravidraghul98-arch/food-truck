@@ -219,6 +219,18 @@ export async function updateSupabaseMessageReadStatus(messageId: string, read: b
 // ============================================================================
 
 export async function fetchSupabaseProfile(userId: string): Promise<User | null> {
+  // 1. Try serverless backend API (/api/profile)
+  try {
+    const res = await fetch(`/api/profile?id=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.profile) {
+        return data.profile;
+      }
+    }
+  } catch {}
+
+  // 2. Try Supabase client directly
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -226,24 +238,64 @@ export async function fetchSupabaseProfile(userId: string): Promise<User | null>
       .eq('id', userId)
       .maybeSingle();
 
-    if (error || !data) {
-      return null;
+    if (!error && data) {
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || '',
+        createdAt: data.created_at || new Date().toISOString(),
+      };
     }
-
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone || '',
-      createdAt: data.created_at || new Date().toISOString(),
-    };
   } catch (err) {
-    console.error('Error fetching profile from Supabase:', err);
-    return null;
+    console.warn('Error fetching profile from Supabase client:', err);
   }
+
+  // 3. Fallback to local user profiles storage
+  try {
+    const storedStr = localStorage.getItem('arabian_delights_stored_profiles');
+    if (storedStr) {
+      const map = JSON.parse(storedStr);
+      if (map[userId]) return map[userId];
+    }
+  } catch {}
+
+  return null;
 }
 
 export async function upsertSupabaseProfile(profile: { id: string; name: string; email: string; phone?: string }): Promise<boolean> {
+  let savedLocally = false;
+  // 0. Instant Local Backup
+  try {
+    const storedStr = localStorage.getItem('arabian_delights_stored_profiles') || '{}';
+    const map = JSON.parse(storedStr);
+    map[profile.id] = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone || '',
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem('arabian_delights_stored_profiles', JSON.stringify(map));
+    savedLocally = true;
+  } catch {}
+
+  // 1. Try serverless backend API (/api/profile)
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        return true;
+      }
+    }
+  } catch {}
+
+  // 2. Try Supabase client directly
   try {
     const { error } = await supabase
       .from('profiles')
@@ -254,15 +306,12 @@ export async function upsertSupabaseProfile(profile: { id: string; name: string;
         phone: profile.phone || '',
       }, { onConflict: 'id' });
 
-    if (error) {
-      console.warn('Supabase profile upsert warning:', error.message || error);
-      return false;
-    }
-    return true;
+    if (!error) return true;
   } catch (err) {
-    console.warn('Failed to save profile to Supabase (using fallback):', err);
-    return false;
+    console.warn('Failed to save profile to Supabase client:', err);
   }
+
+  return savedLocally;
 }
 
 export function subscribeToProfiles(onProfileChange: (payload: any) => void) {
