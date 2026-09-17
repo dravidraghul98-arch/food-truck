@@ -213,3 +213,75 @@ export async function updateSupabaseMessageReadStatus(messageId: string, read: b
     return false;
   }
 }
+
+// ============================================================================
+// USER PROFILES API & REALTIME SUBSCRIPTIONS
+// ============================================================================
+
+export async function fetchSupabaseProfile(userId: string): Promise<User | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone || '',
+      createdAt: data.created_at || new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error('Error fetching profile from Supabase:', err);
+    return null;
+  }
+}
+
+export async function upsertSupabaseProfile(profile: { id: string; name: string; email: string; phone?: string }): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone || '',
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase profile upsert warning:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to save profile to Supabase (using fallback):', err);
+    return false;
+  }
+}
+
+export function subscribeToProfiles(onProfileChange: (payload: any) => void) {
+  try {
+    const channel = supabase
+      .channel('public:profiles')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          onProfileChange(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  } catch (err) {
+    console.error('Error subscribing to profile changes:', err);
+    return null;
+  }
+}
+

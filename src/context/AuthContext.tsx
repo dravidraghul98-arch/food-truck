@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchSupabaseProfile, upsertSupabaseProfile, subscribeToProfiles } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -8,7 +8,8 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, phone: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  updateProfile: (updatedData: Partial<User>) => void;
+  updateProfile: (updatedData: Partial<User>) => Promise<void> | void;
+  updateUser: (updatedData: Partial<User>) => Promise<void> | void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,19 +34,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Sync Supabase Auth session if active
+  // Sync Supabase Auth session & fetch profile from DB
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const sbUser = session.user;
+        const dbProfile = await fetchSupabaseProfile(sbUser.id);
         const mappedUser: User = {
           id: sbUser.id,
-          name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer',
+          name: dbProfile?.name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer',
           email: sbUser.email || '',
-          phone: sbUser.user_metadata?.phone || '+91 98427 12345',
+          phone: dbProfile?.phone || sbUser.user_metadata?.phone || '+91 98427 12345',
           createdAt: sbUser.created_at || new Date().toISOString(),
         };
         setUser(mappedUser);
+        // Guarantee database profile record exists
+        upsertSupabaseProfile({
+          id: mappedUser.id,
+          name: mappedUser.name,
+          email: mappedUser.email,
+          phone: mappedUser.phone,
+        });
       }
     });
 
@@ -53,6 +62,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authListener?.subscription?.unsubscribe();
     };
   }, []);
+
+  // Real-time profile subscription listener
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const subscription = subscribeToProfiles((payload) => {
+      if (payload.new && payload.new.id === user.id) {
+        setUser((prev) => prev ? ({
+          ...prev,
+          name: payload.new.name || prev.name,
+          phone: payload.new.phone !== undefined ? payload.new.phone : prev.phone,
+          email: payload.new.email || prev.email,
+        }) : null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe?.();
+    };
+  }, [user?.id]);
 
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -74,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date().toISOString(),
           };
           setUser(ownerUser);
+          upsertSupabaseProfile(ownerUser);
           return { success: true };
         } else {
           return { success: false, error: 'Incorrect owner password. Please try again.' };
@@ -92,7 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.ok && contentType && contentType.includes('application/json')) {
           const data = await response.json();
           if (data.success && data.user) {
-            setUser({ ...data.user, role: data.user.role || 'customer' });
+            const loggedInUser = { ...data.user, role: data.user.role || 'customer' };
+            setUser(loggedInUser);
+            upsertSupabaseProfile(loggedInUser);
             return { success: true };
           }
         }
@@ -108,15 +140,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         if (!sbError && sbData?.user) {
+          const dbProfile = await fetchSupabaseProfile(sbData.user.id);
           const activeUser: User = {
             id: sbData.user.id,
-            name: sbData.user.user_metadata?.name || trimmedEmail.split('@')[0],
+            name: dbProfile?.name || sbData.user.user_metadata?.name || trimmedEmail.split('@')[0],
             email: sbData.user.email || trimmedEmail,
-            phone: sbData.user.user_metadata?.phone || '+91 98427 12345',
+            phone: dbProfile?.phone || sbData.user.user_metadata?.phone || '+91 98427 12345',
             role: sbData.user.user_metadata?.role || 'customer',
             createdAt: sbData.user.created_at || new Date().toISOString(),
           };
           setUser(activeUser);
+          upsertSupabaseProfile(activeUser);
           return { success: true };
         }
       } catch {
@@ -132,7 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (u) => u.user.email.toLowerCase() === trimmedEmail && u.pass === pass
           );
           if (found) {
-            setUser({ ...found.user, role: found.user.role || 'customer' });
+            const matchedUser = { ...found.user, role: found.user.role || 'customer' };
+            setUser(matchedUser);
+            upsertSupabaseProfile(matchedUser);
             return { success: true };
           }
         }
@@ -151,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date().toISOString(),
         };
         setUser(demoUser);
+        upsertSupabaseProfile(demoUser);
         return { success: true };
       }
 
@@ -168,6 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
+      const cleanName = name.trim();
+      const cleanPhone = phone.trim();
 
       // 1. Try backend API endpoint safely (if server is running)
       try {
@@ -175,9 +214,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: name.trim(),
+            name: cleanName,
             email: trimmedEmail,
-            phone: phone.trim(),
+            phone: cleanPhone,
             password: pass,
           }),
         });
@@ -187,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await response.json();
           if (data.success && data.user) {
             setUser(data.user);
+            upsertSupabaseProfile(data.user);
             return { success: true };
           }
         }
@@ -201,8 +241,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           password: pass,
           options: {
             data: {
-              name: name.trim(),
-              phone: phone.trim(),
+              name: cleanName,
+              phone: cleanPhone,
             },
           },
         });
@@ -210,24 +250,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!sbError && sbData?.user) {
           const newUser: User = {
             id: sbData.user.id,
-            name: name.trim(),
+            name: cleanName,
             email: trimmedEmail,
-            phone: phone.trim(),
+            phone: cleanPhone,
             createdAt: new Date().toISOString(),
           };
           setUser(newUser);
+          upsertSupabaseProfile(newUser);
           return { success: true };
         }
       } catch {
         // Supabase client error - proceed to local storage fallback
       }
 
-      // 3. Fallback: Save newly registered user to localStorage
+      // 3. Fallback: Save newly registered user to localStorage & database
       const newUser: User = {
         id: 'usr-' + Date.now(),
-        name: name.trim() || trimmedEmail.split('@')[0],
+        name: cleanName || trimmedEmail.split('@')[0],
         email: trimmedEmail,
-        phone: phone.trim() || '+91 98427 12345',
+        phone: cleanPhone || '+91 98427 12345',
         createdAt: new Date().toISOString(),
       };
 
@@ -243,6 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUser(newUser);
+      upsertSupabaseProfile(newUser);
       return { success: true };
     } catch {
       return { success: false, error: 'Registration failed. Please try again.' };
@@ -259,10 +301,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
-  const updateProfile = (updatedData: Partial<User>) => {
+  const updateProfile = async (updatedData: Partial<User>) => {
     if (!user) return;
     const updated = { ...user, ...updatedData };
     setUser(updated);
+    await upsertSupabaseProfile({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      phone: updated.phone,
+    });
   };
 
   return (
@@ -274,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         updateProfile,
+        updateUser: updateProfile,
       }}
     >
       {children}
@@ -288,3 +337,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -7,12 +7,13 @@ import { BrandLogo } from '../components/BrandLogo';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateProfile, updateUser } = useAuth();
   const { bookings } = useBooking();
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const totalSpent = bookings
@@ -23,12 +24,22 @@ export const ProfilePage: React.FC = () => {
     (b) => b.status === 'Confirmed' || b.status === 'Preparing' || b.status === 'Ready'
   ).length;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({ name, phone });
-    setIsEditing(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+    setIsSaving(true);
+    try {
+      const saveFn = updateProfile || updateUser;
+      if (saveFn) {
+        await saveFn({ name, phone });
+      }
+      setIsEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = () => {
@@ -185,9 +196,10 @@ export const ProfilePage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold"
+                    disabled={isSaving}
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-bold flex items-center gap-1.5"
                   >
-                    Save Changes
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
