@@ -6,8 +6,7 @@ function getPgClient() {
   const connectionString =
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    'postgresql://postgres:Raghul%402008%21@db.xctjbhnwefgcwlnbqoxh.supabase.co:5432/postgres';
+    'postgresql://postgres.xctjbhnwefgcwlnbqoxh:Raghul%402008%21@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
   return new Client({
     connectionString,
     ssl: { rejectUnauthorized: false },
