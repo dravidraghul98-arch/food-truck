@@ -236,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await response.json();
           if (data.success && data.user) {
             setUser(data.user);
-            upsertSupabaseProfile(data.user);
+            await upsertSupabaseProfile(data.user);
             return { success: true };
           }
         }
@@ -266,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date().toISOString(),
           };
           setUser(newUser);
-          upsertSupabaseProfile(newUser);
+          await upsertSupabaseProfile(newUser);
           return { success: true };
         }
       } catch {
@@ -294,7 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUser(newUser);
-      upsertSupabaseProfile(newUser);
+      await upsertSupabaseProfile(newUser);
       return { success: true };
     } catch {
       return { success: false, error: 'Registration failed. Please try again.' };

@@ -66,10 +66,10 @@ export const RegisterPage: React.FC = () => {
     try {
       const res = await register(name, email, phone, password);
       if (res.success) {
-        setSuccessMessage('Account created successfully! Redirecting to Login...');
+        setSuccessMessage('Account created successfully! Welcome to Arabian Delights...');
         setTimeout(() => {
-          navigate('/login');
-        }, 1500);
+          navigate('/home', { replace: true });
+        }, 1200);
       } else {
         setErrorMessage(res.error || 'Registration failed.');
       }
