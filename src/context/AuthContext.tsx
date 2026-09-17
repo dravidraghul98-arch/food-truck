@@ -218,33 +218,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanName = name.trim();
       const cleanPhone = phone.trim();
 
-      // 1. Try backend API endpoint safely (if server is running)
-      try {
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: cleanName,
-            email: trimmedEmail,
-            phone: cleanPhone,
-            password: pass,
-          }),
-        });
+      let sbUserId: string | null = null;
 
-        const contentType = response.headers.get('content-type');
-        if (response.ok && contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          if (data.success && data.user) {
-            setUser(data.user);
-            await upsertSupabaseProfile(data.user);
-            return { success: true };
-          }
-        }
-      } catch {
-        // Backend API not reachable (static host) - proceed to client auth
-      }
-
-      // 2. Try Supabase Auth client
+      // 1. First register with Supabase Auth client to ensure auth.users record exists
       try {
         const { data: sbData, error: sbError } = await supabase.auth.signUp({
           email: trimmedEmail,
@@ -252,36 +228,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           options: {
             data: {
               name: cleanName,
+              display_name: cleanName,
+              full_name: cleanName,
               phone: cleanPhone,
             },
           },
         });
 
         if (!sbError && sbData?.user) {
-          const newUser: User = {
-            id: sbData.user.id,
-            name: cleanName,
-            email: trimmedEmail,
-            phone: cleanPhone,
-            createdAt: new Date().toISOString(),
-          };
-          setUser(newUser);
-          await upsertSupabaseProfile(newUser);
-          return { success: true };
+          sbUserId = sbData.user.id;
         }
       } catch {
-        // Supabase client error - proceed to local storage fallback
+        // Supabase auth client fallback
       }
 
-      // 3. Fallback: Save newly registered user to localStorage & database
+      const assignedId = sbUserId || `usr-${Date.now()}`;
+
       const newUser: User = {
-        id: 'usr-' + Date.now(),
-        name: cleanName || trimmedEmail.split('@')[0],
+        id: assignedId,
+        name: cleanName,
         email: trimmedEmail,
-        phone: cleanPhone || '+91 98427 12345',
+        phone: cleanPhone,
         createdAt: new Date().toISOString(),
       };
 
+      // 2. Register via backend API (/api/auth/register)
+      try {
+        await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: assignedId,
+            name: cleanName,
+            email: trimmedEmail,
+            phone: cleanPhone,
+            password: pass,
+          }),
+        });
+      } catch {}
+
+      // 3. Guarantee PostgreSQL public.profiles database upsert
+      await upsertSupabaseProfile(newUser);
+      setUser(newUser);
+      setSessionCookie(newUser);
+
+      // Save registered user locally for instant fallback login
       try {
         const storedUsersStr = localStorage.getItem('arabian_delights_registered_users');
         const storedUsers: Array<{ user: User; pass: string }> = storedUsersStr
@@ -289,12 +280,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : [];
         storedUsers.push({ user: newUser, pass });
         localStorage.setItem('arabian_delights_registered_users', JSON.stringify(storedUsers));
-      } catch {
-        // Ignore local storage error
-      }
+      } catch {}
 
-      setUser(newUser);
-      await upsertSupabaseProfile(newUser);
       return { success: true };
     } catch {
       return { success: false, error: 'Registration failed. Please try again.' };
@@ -308,6 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing out:', e);
     }
     setUser(null);
+    setSessionCookie(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
@@ -315,6 +303,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const updated = { ...user, ...updatedData };
     setUser(updated);
+    setSessionCookie(updated);
+
+    // 1. Update Supabase Auth user metadata
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          name: updated.name,
+          display_name: updated.name,
+          full_name: updated.name,
+          phone: updated.phone,
+        },
+      });
+    } catch (e) {
+      console.warn('Error updating Supabase Auth user metadata:', e);
+    }
+
+    // 2. Update public.profiles PostgreSQL database table
     await upsertSupabaseProfile({
       id: updated.id,
       name: updated.name,
