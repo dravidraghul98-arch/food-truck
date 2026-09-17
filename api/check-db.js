@@ -3,10 +3,11 @@ import pg from 'pg';
 const { Client } = pg;
 
 function getPgClient() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error('DATABASE_URL is not set');
-  }
+  const connectionString =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    'postgresql://postgres:Raghul%402008%21@db.xctjbhnwefgcwlnbqoxh.supabase.co:5432/postgres';
   return new Client({
     connectionString,
     ssl: { rejectUnauthorized: false },
