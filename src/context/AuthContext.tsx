@@ -222,10 +222,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 1. First register with Supabase Auth client to ensure auth.users record exists
       try {
+        const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/#/profile` : undefined;
         const { data: sbData, error: sbError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password: pass,
           options: {
+            emailRedirectTo: redirectUrl,
             data: {
               name: cleanName,
               display_name: cleanName,
