@@ -3,10 +3,18 @@ import pg from 'pg';
 const { Client } = pg;
 
 function getPgClient() {
-  const connectionString =
+  let connectionString =
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
     'postgresql://postgres.xctjbhnwefgcwlnbqoxh:Raghul%402008%21@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+
+  if (connectionString.includes('db.xctjbhnwefgcwlnbqoxh.supabase.co')) {
+    connectionString = connectionString
+      .replace('db.xctjbhnwefgcwlnbqoxh.supabase.co:5432', 'aws-0-ap-south-1.pooler.supabase.com:5432')
+      .replace('db.xctjbhnwefgcwlnbqoxh.supabase.co', 'aws-0-ap-south-1.pooler.supabase.com:5432')
+      .replace('postgresql://postgres:', 'postgresql://postgres.xctjbhnwefgcwlnbqoxh:');
+  }
+
   return new Client({
     connectionString,
     ssl: { rejectUnauthorized: false },
