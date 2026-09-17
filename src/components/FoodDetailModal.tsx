@@ -15,7 +15,7 @@ interface FoodDetailModalProps {
 export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, onClose }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { setDraftFromFood } = useBooking();
+  const { addItemToDraft } = useBooking();
 
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedAddOns, setSelectedAddOns] = useState<FoodAddOn[]>([]);
@@ -63,7 +63,7 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, 
         }
       : food;
 
-    setDraftFromFood(
+    addItemToDraft(
       customizedFood,
       quantity,
       selectedAddOns,
@@ -353,7 +353,7 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ food, isOpen, 
                   className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-amber-500 to-amber-600 hover:from-red-500 hover:to-amber-500 text-neutral-950 font-['Cinzel'] font-black text-base sm:text-lg tracking-wider uppercase shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:shadow-[0_0_35px_rgba(245,158,11,0.6)] transform hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 cursor-pointer"
                 >
                   <Sparkles className="w-5 h-5 fill-neutral-950" />
-                  PRE-BOOK NOW • ₹{totalPrice}
+                  + ADD TO PRE-BOOK • ₹{totalPrice}
                 </button>
               ) : (
                 <button

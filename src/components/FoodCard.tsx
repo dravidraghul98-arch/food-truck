@@ -110,7 +110,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({ food, onViewDetails, onPreBo
             {food.available ? (
               <>
                 <Sparkles className="w-3.5 h-3.5 fill-neutral-950" />
-                Pre-Book
+                + Add to Pre-Book
               </>
             ) : (
               <span>SOLD OUT</span>

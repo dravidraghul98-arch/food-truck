@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext';
 export const MyBookingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { bookings, cancelBooking, updateBookingStatus } = useBooking();
+  const { bookings, cancelBooking, updateBookingStatus, reBookOrder } = useBooking();
   
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [activeQrModal, setActiveQrModal] = useState<Booking | null>(null);
@@ -236,6 +236,18 @@ export const MyBookingsPage: React.FC = () => {
                     >
                       <Ticket className="w-3.5 h-3.5" />
                       View Token Pass
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reBookOrder(booking, user ? { name: user.name, phone: user.phone, email: user.email } : undefined);
+                        navigate('/pre-book');
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-950 to-amber-950 hover:from-red-900 hover:to-amber-900 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                      Re-Book Items
                     </button>
 
                     {booking.status !== 'Completed' && booking.status !== 'Cancelled' && (

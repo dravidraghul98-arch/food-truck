@@ -43,6 +43,16 @@ interface BookingContextType {
     addOns: FoodAddOn[],
     userInfo?: { name: string; phone: string; email: string }
   ) => void;
+  addItemToDraft: (
+    food: FoodItem,
+    quantity: number,
+    addOns: FoodAddOn[],
+    userInfo?: { name: string; phone: string; email: string }
+  ) => void;
+  reBookOrder: (
+    booking: Booking,
+    userInfo?: { name: string; phone: string; email: string }
+  ) => void;
   updateDraft: (updates: Partial<PreBookDraft>) => void;
   clearDraft: () => void;
   calculateDraftTotals: () => {
@@ -309,10 +319,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     userInfo?: { name: string; phone: string; email: string }
   ) => {
     const today = new Date().toISOString().split('T')[0];
+    const initialQty = Math.max(1, quantity);
     setActiveDraft({
       foodItem: food,
-      quantity: Math.max(1, quantity),
+      quantity: initialQty,
       selectedAddOns: addOns,
+      items: [{ foodItem: food, quantity: initialQty, selectedAddOns: addOns }],
       orderType: 'Pickup',
       customerName: userInfo?.name || '',
       customerPhone: userInfo?.phone || '',
@@ -322,6 +334,90 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pickupDate: today,
       pickupTime: '06:00 PM',
       specialInstructions: '',
+    });
+  };
+
+  const addItemToDraft = (
+    food: FoodItem,
+    quantity: number = 1,
+    addOns: FoodAddOn[] = [],
+    userInfo?: { name: string; phone: string; email: string }
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+    const newQty = Math.max(1, quantity);
+
+    setActiveDraft((prev) => {
+      if (!prev) {
+        return {
+          foodItem: food,
+          quantity: newQty,
+          selectedAddOns: addOns,
+          items: [{ foodItem: food, quantity: newQty, selectedAddOns: addOns }],
+          orderType: 'Pickup',
+          customerName: userInfo?.name || '',
+          customerPhone: userInfo?.phone || '',
+          customerEmail: userInfo?.email || '',
+          deliveryAddress: '',
+          deliveryPhone: userInfo?.phone || '',
+          pickupDate: today,
+          pickupTime: '06:00 PM',
+          specialInstructions: '',
+        };
+      }
+
+      const existingItems: PreBookItem[] =
+        prev.items && prev.items.length > 0
+          ? [...prev.items]
+          : [{ foodItem: prev.foodItem, quantity: prev.quantity, selectedAddOns: prev.selectedAddOns }];
+
+      const itemIdx = existingItems.findIndex((i) => i.foodItem.id === food.id);
+      if (itemIdx >= 0) {
+        existingItems[itemIdx] = {
+          ...existingItems[itemIdx],
+          quantity: existingItems[itemIdx].quantity + newQty,
+          selectedAddOns: addOns.length > 0 ? addOns : existingItems[itemIdx].selectedAddOns,
+        };
+      } else {
+        existingItems.push({ foodItem: food, quantity: newQty, selectedAddOns: addOns });
+      }
+
+      return {
+        ...prev,
+        foodItem: existingItems[0].foodItem,
+        quantity: existingItems[0].quantity,
+        selectedAddOns: existingItems[0].selectedAddOns,
+        items: existingItems,
+        customerName: prev.customerName || userInfo?.name || '',
+        customerPhone: prev.customerPhone || userInfo?.phone || '',
+        customerEmail: prev.customerEmail || userInfo?.email || '',
+      };
+    });
+  };
+
+  const reBookOrder = (
+    booking: Booking,
+    userInfo?: { name: string; phone: string; email: string }
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+    const itemsToRebook: PreBookItem[] =
+      booking.items && booking.items.length > 0
+        ? booking.items
+        : [{ foodItem: booking.foodItem, quantity: booking.quantity, selectedAddOns: booking.selectedAddOns }];
+
+    setActiveDraft({
+      foodItem: itemsToRebook[0].foodItem,
+      quantity: itemsToRebook[0].quantity,
+      selectedAddOns: itemsToRebook[0].selectedAddOns,
+      items: itemsToRebook,
+      orderType: booking.orderType || 'Pickup',
+      customerName: booking.customerName || userInfo?.name || '',
+      customerPhone: booking.customerPhone || userInfo?.phone || '',
+      customerEmail: booking.customerEmail || userInfo?.email || '',
+      deliveryAddress: booking.deliveryAddress || '',
+      deliveryPhone: booking.deliveryPhone || booking.customerPhone || '',
+      pickupDate: today,
+      pickupTime: '06:30 PM',
+      specialInstructions: booking.specialInstructions || '',
     });
   };
 
@@ -519,6 +615,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         openFoodModal,
         closeFoodModal,
         setDraftFromFood,
+        addItemToDraft,
+        reBookOrder,
         updateDraft,
         clearDraft,
         calculateDraftTotals,
