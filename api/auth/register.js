@@ -66,10 +66,56 @@ export default async function handler(req, res) {
     client = getPgClient();
     await client.connect();
 
+    // Ensure extensions for password hashing exist (pgcrypto)
+    try {
+      await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
+    } catch {}
+
+    // Insert user into auth.users so user appears under Authentication -> Users in Supabase Dashboard
+    try {
+      await client.query(
+        `
+        INSERT INTO auth.users (
+          instance_id,
+          id,
+          aud,
+          role,
+          email,
+          encrypted_password,
+          email_confirmed_at,
+          raw_app_meta_data,
+          raw_user_meta_data,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          '00000000-0000-0000-0000-000000000000',
+          $1,
+          'authenticated',
+          'authenticated',
+          $2,
+          crypt($3, gen_salt('bf')),
+          NOW(),
+          '{"provider": "email", "providers": ["email"]}',
+          json_build_object('name', $4, 'display_name', $4, 'full_name', $4, 'phone', $5),
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+          updated_at = NOW();
+      `,
+        [userId, cleanEmail, password || 'Password123!', cleanName, cleanPhone]
+      );
+    } catch (authErr) {
+      console.warn('Direct auth.users insert warning:', authErr.message);
+    }
+
     // Ensure profiles table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.profiles (
-        id TEXT PRIMARY KEY,
+        id UUID PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         phone TEXT DEFAULT '',
