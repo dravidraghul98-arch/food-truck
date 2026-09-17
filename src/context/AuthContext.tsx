@@ -20,15 +20,12 @@ const AUTH_STORAGE_KEY = 'arabian_delights_auth_user';
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     try {
-      // 1. Check Cookie session storage first
+      // 1. Check Cookie session storage (primary authority)
       const cookieUser = getSessionCookie();
       if (cookieUser && cookieUser.email) {
         return cookieUser;
       }
-
-      // 2. Check localStorage session storage
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
+      return null;
     } catch {
       return null;
     }
@@ -36,12 +33,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       setSessionCookie(user);
     } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
       setSessionCookie(null);
     }
+    // Remove legacy localstorage auth and profile keys for security
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem('arabian_delights_auth_user');
+      localStorage.removeItem('arabian_delights_stored_profiles');
+    } catch {}
   }, [user]);
 
   // Sync Supabase Auth session & fetch profile from DB
@@ -58,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: sbUser.created_at || new Date().toISOString(),
         };
         setUser(mappedUser);
+        setSessionCookie(mappedUser);
         // Guarantee database profile record exists
         upsertSupabaseProfile({
           id: mappedUser.id,
@@ -100,10 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const ownerEmail = (import.meta.env.VITE_OWNER_EMAIL || 'owner@arabiandelights.com').toLowerCase();
       const ownerPass = import.meta.env.VITE_OWNER_PASSWORD || 'owner123';
 
-      // 0. Single Dedicated Owner Login Check
+      // 0. Dedicated Owner Login Check
       if (trimmedEmail === ownerEmail) {
         const cleanPass = pass.trim();
-        if (cleanPass === ownerPass || cleanPass === 'owner123' || cleanPass === 'owner' || cleanPass === 'admin' || cleanPass.length >= 4) {
+        if (cleanPass === ownerPass || cleanPass === 'owner123') {
           const ownerUser: User = {
             id: 'owner-admin-1',
             name: 'Food Truck Owner',
@@ -113,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date().toISOString(),
           };
           setUser(ownerUser);
+          setSessionCookie(ownerUser);
           upsertSupabaseProfile(ownerUser);
           return { success: true };
         } else {
@@ -120,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 1. Try backend API endpoint safely (if server is running)
+      // 1. Try backend API endpoint (/api/auth/login)
       try {
         const response = await fetch('/api/auth/login', {
           method: 'POST',
@@ -129,17 +132,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         const contentType = response.headers.get('content-type');
-        if (response.ok && contentType && contentType.includes('application/json')) {
+        if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
-          if (data.success && data.user) {
+          if (response.ok && data.success && data.user) {
             const loggedInUser = { ...data.user, role: data.user.role || 'customer' };
             setUser(loggedInUser);
+            setSessionCookie(loggedInUser);
             upsertSupabaseProfile(loggedInUser);
             return { success: true };
+          } else if (data.error) {
+            return { success: false, error: data.error };
           }
         }
       } catch {
-        // Backend API not reachable (static host like GitHub Pages) - proceed to client auth
+        // API endpoint not reachable (static hosting) -> continue to Supabase Auth client check
       }
 
       // 2. Try Supabase Auth client
@@ -160,48 +166,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: sbData.user.created_at || new Date().toISOString(),
           };
           setUser(activeUser);
+          setSessionCookie(activeUser);
           upsertSupabaseProfile(activeUser);
           return { success: true };
-        }
-      } catch {
-        // Supabase client error - proceed to demo/local fallback
-      }
-
-      // 3. Check registered local users in localStorage
-      try {
-        const storedUsersStr = localStorage.getItem('arabian_delights_registered_users');
-        if (storedUsersStr) {
-          const storedUsers: Array<{ user: User; pass: string }> = JSON.parse(storedUsersStr);
-          const found = storedUsers.find(
-            (u) => u.user.email.toLowerCase() === trimmedEmail && u.pass === pass
-          );
-          if (found) {
-            const matchedUser = { ...found.user, role: found.user.role || 'customer' };
-            setUser(matchedUser);
-            upsertSupabaseProfile(matchedUser);
-            return { success: true };
+        } else if (sbError) {
+          if (sbError.message.toLowerCase().includes('invalid login credentials')) {
+            return { success: false, error: 'Invalid email or password. Please check your credentials.' };
           }
         }
       } catch {
-        // Local storage parse error
+        // Supabase client error
       }
 
-      // 4. Default Demo Customer Fallback (customer@arabiandelights.com or quick login)
-      if (trimmedEmail === 'customer@arabiandelights.com' || (trimmedEmail && pass.length >= 4)) {
-        const demoUser: User = {
-          id: 'usr-' + Date.now(),
-          name: trimmedEmail === 'customer@arabiandelights.com' ? 'Demo Customer' : trimmedEmail.split('@')[0],
-          email: trimmedEmail,
-          phone: '+91 98427 12345',
-          role: 'customer',
-          createdAt: new Date().toISOString(),
-        };
-        setUser(demoUser);
-        upsertSupabaseProfile(demoUser);
-        return { success: true };
-      }
-
-      return { success: false, error: 'Invalid credentials. Please enter a valid email and password.' };
+      // 3. Strict Account Check: Do NOT allow fake auto-logins!
+      return {
+        success: false,
+        error: 'No account found with this email or invalid password. Please register an account first.',
+      };
     } catch {
       return { success: false, error: 'Authentication error. Please try again.' };
     }
@@ -218,9 +199,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanName = name.trim();
       const cleanPhone = phone.trim();
 
+      if (!trimmedEmail || !cleanName || !pass) {
+        return { success: false, error: 'Name, email, and password are required.' };
+      }
+
       let sbUserId: string | null = null;
 
-      // 1. First register with Supabase Auth client to ensure auth.users record exists
+      // 1. Register with Supabase Auth client
       try {
         const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/#/profile` : undefined;
         const { data: sbData, error: sbError } = await supabase.auth.signUp({
@@ -237,12 +222,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         });
 
-        if (!sbError && sbData?.user) {
+        if (sbError) {
+          if (sbError.message.toLowerCase().includes('already registered')) {
+            return { success: false, error: 'An account with this email already exists. Please log in instead.' };
+          }
+        } else if (sbData?.user) {
           sbUserId = sbData.user.id;
         }
-      } catch {
-        // Supabase auth client fallback
-      }
+      } catch {}
 
       const generateUUID = () => {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -284,21 +271,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newUser);
       setSessionCookie(newUser);
 
-      // Save registered user locally for instant fallback login
-      try {
-        const storedUsersStr = localStorage.getItem('arabian_delights_registered_users');
-        const storedUsers: Array<{ user: User; pass: string }> = storedUsersStr
-          ? JSON.parse(storedUsersStr)
-          : [];
-        storedUsers.push({ user: newUser, pass });
-        localStorage.setItem('arabian_delights_registered_users', JSON.stringify(storedUsers));
-      } catch {}
-
       return { success: true };
     } catch {
       return { success: false, error: 'Registration failed. Please try again.' };
     }
   };
+
 
   const logout = async () => {
     try {

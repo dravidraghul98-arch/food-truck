@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Booking, FoodItem, User } from '../types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xctjbhnwefgcwlnbqoxh.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdGpiaG53ZWZnY3dsbmJxb3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMTcwMDAsImV4cCI6MjA1Njc5MzAwMH0.dummy_anon_key';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdGpiaG53ZWZnY3dsbmJxb3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk2NTEsImV4cCI6MjEwNDQzNTY1MX0.8Y0DF5Fp1TI6RypfnMedFmuh80VQ8eb0nDJ2mb1NGDs';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -251,35 +251,10 @@ export async function fetchSupabaseProfile(userId: string): Promise<User | null>
     console.warn('Error fetching profile from Supabase client:', err);
   }
 
-  // 3. Fallback to local user profiles storage
-  try {
-    const storedStr = localStorage.getItem('arabian_delights_stored_profiles');
-    if (storedStr) {
-      const map = JSON.parse(storedStr);
-      if (map[userId]) return map[userId];
-    }
-  } catch {}
-
   return null;
 }
 
 export async function upsertSupabaseProfile(profile: { id: string; name: string; email: string; phone?: string }): Promise<boolean> {
-  let savedLocally = false;
-  // 0. Instant Local Backup
-  try {
-    const storedStr = localStorage.getItem('arabian_delights_stored_profiles') || '{}';
-    const map = JSON.parse(storedStr);
-    map[profile.id] = {
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone || '',
-      createdAt: new Date().toISOString(),
-    };
-    localStorage.setItem('arabian_delights_stored_profiles', JSON.stringify(map));
-    savedLocally = true;
-  } catch {}
-
   // 1. Try serverless backend API (/api/profile)
   try {
     const res = await fetch('/api/profile', {
@@ -311,7 +286,7 @@ export async function upsertSupabaseProfile(profile: { id: string; name: string;
     console.warn('Failed to save profile to Supabase client:', err);
   }
 
-  return savedLocally;
+  return false;
 }
 
 export function subscribeToProfiles(onProfileChange: (payload: any) => void) {

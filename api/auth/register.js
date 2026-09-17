@@ -3,7 +3,7 @@ import pg from 'pg';
 const { Client } = pg;
 
 function getPgClient() {
-  const connectionString = 'postgresql://postgres.xctjbhnwefgcwlnbqoxh:Raghul%402008%21@aws-0-ap-south-1.pooler.supabase.com:6543/postgres';
+  const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.xctjbhnwefgcwlnbqoxh:Raghul%402008%21@aws-0-ap-south-1.pooler.supabase.com:6543/postgres';
   return new Client({
     connectionString,
     ssl: { rejectUnauthorized: false },
