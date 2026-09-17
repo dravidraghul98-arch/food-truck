@@ -117,14 +117,19 @@ export default async function handler(req, res) {
 
       await client.end();
 
+      const profileData = {
+        id: profileId,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+      };
+
+      const cookieVal = encodeURIComponent(JSON.stringify(profileData));
+      res.setHeader('Set-Cookie', `arabian_delights_session_user=${cookieVal}; Path=/; Max-Age=604800; SameSite=Lax`);
+
       return res.status(200).json({
         success: true,
-        profile: {
-          id: profileId,
-          name: cleanName,
-          email: cleanEmail,
-          phone: cleanPhone,
-        },
+        profile: profileData,
       });
     } catch (err) {
       if (client) try { await client.end(); } catch {}

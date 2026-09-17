@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase, fetchSupabaseProfile, upsertSupabaseProfile, subscribeToProfiles } from '../lib/supabase';
+import { getSessionCookie, setSessionCookie } from '../lib/cookies';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,13 @@ const AUTH_STORAGE_KEY = 'arabian_delights_auth_user';
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     try {
+      // 1. Check Cookie session storage first
+      const cookieUser = getSessionCookie();
+      if (cookieUser && cookieUser.email) {
+        return cookieUser;
+      }
+
+      // 2. Check localStorage session storage
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       return stored ? JSON.parse(stored) : null;
     } catch {
@@ -29,8 +37,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      setSessionCookie(user);
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      setSessionCookie(null);
     }
   }, [user]);
 
